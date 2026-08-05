@@ -10,10 +10,6 @@ import streamlit as st
 from supabase import Client, create_client
 
 
-# ============================================================
-# ZÁKLADNÍ NASTAVENÍ
-# ============================================================
-
 APP_TZ = ZoneInfo("Europe/Prague")
 
 YUSEN_ORANGE = "#F58220"
@@ -63,10 +59,6 @@ CINNOSTI = [
 ]
 
 
-# ============================================================
-# NASTAVENÍ STRÁNKY
-# ============================================================
-
 st.set_page_config(
     page_title="Měření činností",
     page_icon="⏱️",
@@ -75,10 +67,6 @@ st.set_page_config(
 )
 
 
-# ============================================================
-# HTML FUNKCE
-# ============================================================
-
 def render_html(html: str) -> None:
     st.markdown(
         dedent(html).strip(),
@@ -86,22 +74,10 @@ def render_html(html: str) -> None:
     )
 
 
-# ============================================================
-# VZHLED APLIKACE
-# ============================================================
-
 render_html(
     f"""
     <style>
-        #MainMenu {{
-            visibility: hidden;
-        }}
-
-        footer {{
-            visibility: hidden;
-        }}
-
-        header {{
+        #MainMenu, footer, header {{
             visibility: hidden;
         }}
 
@@ -170,7 +146,6 @@ render_html(
             padding: 22px 18px;
             margin: 14px 0 20px;
             text-align: center;
-            box-shadow: 0 4px 14px rgba(245, 130, 32, 0.15);
         }}
 
         .status-idle {{
@@ -180,7 +155,6 @@ render_html(
             padding: 22px 18px;
             margin: 14px 0 20px;
             text-align: center;
-            box-shadow: 0 4px 14px rgba(0, 82, 155, 0.12);
         }}
 
         .status-label {{
@@ -235,7 +209,6 @@ render_html(
             color: {YUSEN_DARK_BLUE};
             font-size: 1.05rem;
             font-weight: 700;
-            box-shadow: 0 2px 8px rgba(0, 82, 155, 0.10);
         }}
 
         .selected-box strong {{
@@ -243,19 +216,59 @@ render_html(
             font-weight: 900;
         }}
 
+        /* VÝBĚR PRACOVNÍKA */
+
         div[data-testid="stSelectbox"] label {{
             color: {YUSEN_DARK_BLUE} !important;
-            font-size: 1.08rem;
-            font-weight: 900;
+            font-size: 1.08rem !important;
+            font-weight: 900 !important;
         }}
 
-        div[data-testid="stSelectbox"] > div > div {{
-            min-height: 58px;
-            border-radius: 13px;
-            font-size: 1.05rem;
-            background: white;
-            color: {YUSEN_DARK_BLUE};
+        div[data-testid="stSelectbox"]
+        div[data-baseweb="select"] > div {{
+            min-height: 58px !important;
+            background: white !important;
+            border-radius: 13px !important;
+            color: {YUSEN_DARK_BLUE} !important;
         }}
+
+        div[data-testid="stSelectbox"]
+        div[data-baseweb="select"] span {{
+            color: {YUSEN_DARK_BLUE} !important;
+            opacity: 1 !important;
+            font-weight: 700 !important;
+        }}
+
+        div[data-testid="stSelectbox"]
+        div[data-baseweb="select"] svg {{
+            color: {YUSEN_DARK_BLUE} !important;
+            fill: {YUSEN_DARK_BLUE} !important;
+        }}
+
+        div[role="listbox"] {{
+            background: white !important;
+            border: 1px solid #A8CAE8 !important;
+        }}
+
+        div[role="option"] {{
+            background: white !important;
+            color: {YUSEN_DARK_BLUE} !important;
+            font-weight: 700 !important;
+        }}
+
+        div[role="option"] * {{
+            color: {YUSEN_DARK_BLUE} !important;
+        }}
+
+        div[role="option"]:hover {{
+            background: #E4EFFA !important;
+        }}
+
+        div[role="option"][aria-selected="true"] {{
+            background: #D6E8F7 !important;
+        }}
+
+        /* TLAČÍTKA */
 
         div.stButton > button {{
             width: 100%;
@@ -272,112 +285,75 @@ render_html(
             color: white;
         }}
 
-        div.stButton > button[kind="primary"]:hover {{
-            background: #D96E13;
-            color: white;
-        }}
-
         div.stButton > button[kind="secondary"] {{
             background: {YUSEN_BLUE};
             color: white;
         }}
 
-        div.stButton > button[kind="secondary"]:hover {{
-            background: {YUSEN_DARK_BLUE};
-            color: white;
+        div.stButton > button p,
+        div.stButton > button span {{
+            color: white !important;
         }}
 
         div.stButton > button:disabled {{
             background: #AAB4BE;
-            color: white;
             opacity: 0.75;
         }}
+
+        /* TLAČÍTKO PRO STAŽENÍ EXCELU */
 
         div[data-testid="stDownloadButton"] > button {{
             min-height: 60px;
             border-radius: 15px;
-            background: {YUSEN_BLUE};
-            color: white;
+            background: {YUSEN_BLUE} !important;
+            color: white !important;
             font-size: 1.1rem;
             font-weight: 900;
         }}
 
-        /* HLÁŠKY SUCCESS, WARNING, INFO A ERROR */
+        div[data-testid="stDownloadButton"] > button * {{
+            color: white !important;
+            opacity: 1 !important;
+        }}
+
+        /* HLÁŠKY */
 
         div[data-testid="stAlert"] {{
             border-radius: 12px;
             font-weight: 700;
         }}
 
-        div[data-testid="stAlert"] p {{
-            color: {YUSEN_DARK_BLUE} !important;
-            font-weight: 700 !important;
-        }}
-
+        div[data-testid="stAlert"] p,
         div[data-testid="stAlert"] strong {{
             color: {YUSEN_DARK_BLUE} !important;
-            font-weight: 900 !important;
+            font-weight: 800 !important;
         }}
 
-        /* ROZBALOVACÍ NABÍDKY */
+        /* ROZBALOVACÍ SEKCE */
 
         div[data-testid="stExpander"] {{
             background: white !important;
             border: 1px solid #B9C8D6 !important;
             border-radius: 14px !important;
             overflow: hidden;
-            box-shadow: 0 2px 7px rgba(0, 59, 112, 0.07);
-        }}
-
-        div[data-testid="stExpander"] details {{
-            background: white !important;
         }}
 
         div[data-testid="stExpander"] summary {{
             background: white !important;
-            color: {YUSEN_DARK_BLUE} !important;
             min-height: 55px;
-            font-weight: 800 !important;
         }}
 
-        div[data-testid="stExpander"] summary:hover {{
-            background: #EAF2FA !important;
-        }}
-
-        div[data-testid="stExpander"] summary p {{
-            color: {YUSEN_DARK_BLUE} !important;
-            font-weight: 800 !important;
-            opacity: 1 !important;
-        }}
-
+        div[data-testid="stExpander"] summary p,
         div[data-testid="stExpander"] summary span {{
             color: {YUSEN_DARK_BLUE} !important;
+            font-weight: 800 !important;
             opacity: 1 !important;
         }}
 
         div[data-testid="stExpander"] summary svg {{
+            color: {YUSEN_DARK_BLUE} !important;
             fill: {YUSEN_DARK_BLUE} !important;
-            color: {YUSEN_DARK_BLUE} !important;
-            opacity: 1 !important;
         }}
-
-        div[data-testid="stExpander"] div[data-testid="stExpanderDetails"] {{
-            background: white !important;
-            color: {YUSEN_DARK_BLUE} !important;
-        }}
-
-        div[data-testid="stExpander"] div[data-testid="stExpanderDetails"] p {{
-            color: {YUSEN_DARK_BLUE} !important;
-        }}
-
-        /* TABULKA */
-
-        div[data-testid="stDataFrame"] {{
-            background: white;
-            border-radius: 10px;
-        }}
-
-        /* BĚŽNÝ TEXT */
 
         .stCaption p {{
             color: #46515C !important;
@@ -396,19 +372,11 @@ render_html(
             .status-time {{
                 font-size: 2.5rem;
             }}
-
-            .status-activity {{
-                font-size: 1.9rem;
-            }}
         }}
     </style>
     """
 )
 
-
-# ============================================================
-# SESSION STATE A ZACHOVÁNÍ PŘIHLÁŠENÍ
-# ============================================================
 
 employee_from_url = st.query_params.get("employee")
 
@@ -421,10 +389,6 @@ if "logged_employee_id" not in st.session_state:
 if "selected_activity" not in st.session_state:
     st.session_state.selected_activity = None
 
-
-# ============================================================
-# SUPABASE
-# ============================================================
 
 @st.cache_resource
 def get_supabase() -> Client:
@@ -443,10 +407,6 @@ def get_supabase() -> Client:
 db = get_supabase()
 
 
-# ============================================================
-# ČASOVÉ FUNKCE
-# ============================================================
-
 def parse_dt(value: str) -> datetime:
     return datetime.fromisoformat(
         value.replace("Z", "+00:00")
@@ -457,20 +417,13 @@ def local_dt(value: str) -> datetime:
     return parse_dt(value).astimezone(APP_TZ)
 
 
-def format_duration(
-    seconds: int | float | None,
-) -> str:
+def format_duration(seconds: int | float | None) -> str:
     total = max(0, int(seconds or 0))
-
     hours, remainder = divmod(total, 3600)
     minutes, seconds = divmod(remainder, 60)
 
     return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
 
-
-# ============================================================
-# DATABÁZOVÉ FUNKCE
-# ============================================================
 
 def get_active_record(
     database: Client,
@@ -486,10 +439,7 @@ def get_active_record(
         .execute()
     )
 
-    if response.data:
-        return response.data[0]
-
-    return None
+    return response.data[0] if response.data else None
 
 
 def start_activity(
@@ -573,13 +523,7 @@ def load_employee_history(
     return response.data or []
 
 
-# ============================================================
-# EXCEL EXPORT
-# ============================================================
-
-def make_excel(
-    rows: list[dict],
-) -> bytes:
+def make_excel(rows: list[dict]) -> bytes:
     output_rows = []
 
     for row in rows:
@@ -606,15 +550,11 @@ def make_excel(
 
         output_rows.append(
             {
-                "Datum": start_local.strftime(
-                    "%d.%m.%Y"
-                ),
+                "Datum": start_local.strftime("%d.%m.%Y"),
                 "ID": row["employee_id"],
                 "Jméno": row["employee_name"],
                 "Činnost": row["activity"],
-                "Start": start_local.strftime(
-                    "%H:%M:%S"
-                ),
+                "Start": start_local.strftime("%H:%M:%S"),
                 "Konec": (
                     end_local.strftime("%H:%M:%S")
                     if end_local
@@ -669,33 +609,10 @@ def make_excel(
         ]
 
         worksheet.freeze_panes = "A2"
-        worksheet.auto_filter.ref = (
-            worksheet.dimensions
-        )
-
-        widths = {
-            "A": 13,
-            "B": 11,
-            "C": 27,
-            "D": 16,
-            "E": 12,
-            "F": 12,
-            "G": 14,
-            "H": 20,
-            "I": 13,
-        }
-
-        for column, width in widths.items():
-            worksheet.column_dimensions[
-                column
-            ].width = width
+        worksheet.auto_filter.ref = worksheet.dimensions
 
     return buffer.getvalue()
 
-
-# ============================================================
-# HLAVIČKA
-# ============================================================
 
 render_html(
     """
@@ -706,10 +623,6 @@ render_html(
     """
 )
 
-
-# ============================================================
-# PŘIHLÁŠENÍ
-# ============================================================
 
 if not st.session_state.logged_employee_id:
     render_html(
@@ -732,14 +645,12 @@ if not st.session_state.logged_employee_id:
         placeholder="Klikni a vyber své jméno",
     )
 
-    login_clicked = st.button(
+    if st.button(
         "PŘIHLÁSIT",
         type="primary",
         use_container_width=True,
         disabled=not bool(selected_employee),
-    )
-
-    if login_clicked:
+    ):
         selected_employee_id = employee_options[
             selected_employee
         ]
@@ -749,11 +660,7 @@ if not st.session_state.logged_employee_id:
         )
 
         st.session_state.selected_activity = None
-
-        st.query_params["employee"] = (
-            selected_employee_id
-        )
-
+        st.query_params["employee"] = selected_employee_id
         st.rerun()
 
     render_html(
@@ -766,10 +673,6 @@ if not st.session_state.logged_employee_id:
 
     st.stop()
 
-
-# ============================================================
-# PŘIHLÁŠENÝ PRACOVNÍK
-# ============================================================
 
 employee_id = st.session_state.logged_employee_id
 
@@ -794,25 +697,11 @@ render_html(
 )
 
 
-# ============================================================
-# AKTUÁLNÍ ČINNOST
-# ============================================================
+active = get_active_record(
+    db,
+    employee_id,
+)
 
-try:
-    active = get_active_record(
-        db,
-        employee_id,
-    )
-except Exception as error:
-    st.error(
-        f"Nepodařilo se načíst data: {error}"
-    )
-    st.stop()
-
-
-# ============================================================
-# ŽIVÉ STOPKY
-# ============================================================
 
 if active:
     started_local = local_dt(
@@ -850,39 +739,24 @@ if active:
 
     live_timer()
 
-    end_clicked = st.button(
+    if st.button(
         "🔴 END – UKONČIT ČINNOST",
         type="primary",
         use_container_width=True,
-    )
+    ):
+        duration = end_activity(
+            db,
+            active,
+        )
 
-    if end_clicked:
-        try:
-            duration = end_activity(
-                db,
-                active,
-            )
+        st.session_state.selected_activity = None
 
-            st.session_state.selected_activity = None
+        st.success(
+            f"Činnost {active['activity']} byla ukončena. "
+            f"Trvání: {format_duration(duration)}"
+        )
 
-            st.success(
-                f"Činnost {active['activity']} "
-                f"byla ukončena. "
-                f"Trvání: {format_duration(duration)}"
-            )
-
-            st.rerun()
-
-        except Exception as error:
-            st.error(
-                f"Činnost se nepodařilo "
-                f"ukončit: {error}"
-            )
-
-
-# ============================================================
-# VÝBĚR A START ČINNOSTI
-# ============================================================
+        st.rerun()
 
 else:
     render_html(
@@ -933,17 +807,13 @@ else:
                 else "secondary"
             )
 
-            activity_clicked = st.button(
+            if st.button(
                 button_text,
                 key=f"activity_{activity}",
                 type=button_type,
                 use_container_width=True,
-            )
-
-            if activity_clicked:
-                st.session_state.selected_activity = (
-                    activity
-                )
+            ):
+                st.session_state.selected_activity = activity
                 st.rerun()
 
     if st.session_state.selected_activity:
@@ -970,206 +840,132 @@ else:
         """
     )
 
-    start_clicked = st.button(
+    if st.button(
         "🟢 START – ZAHÁJIT ČINNOST",
         type="primary",
         use_container_width=True,
         disabled=not bool(
             st.session_state.selected_activity
         ),
-    )
+    ):
+        selected_activity = (
+            st.session_state.selected_activity
+        )
 
-    if start_clicked:
-        try:
-            selected_activity = (
-                st.session_state.selected_activity
-            )
+        start_activity(
+            db,
+            employee_id,
+            employee_name,
+            selected_activity,
+        )
 
-            start_activity(
-                db,
-                employee_id,
-                employee_name,
-                selected_activity,
-            )
+        st.session_state.selected_activity = None
+        st.rerun()
 
-            st.session_state.selected_activity = None
-
-            st.success(
-                f"Činnost {selected_activity} "
-                f"byla spuštěna."
-            )
-
-            st.rerun()
-
-        except Exception as error:
-            error_text = str(error).lower()
-
-            if (
-                "duplicate" in error_text
-                or "one_active_activity" in error_text
-            ):
-                st.warning(
-                    "Tento pracovník už má "
-                    "spuštěnou činnost."
-                )
-            else:
-                st.error(
-                    f"Činnost se nepodařilo "
-                    f"spustit: {error}"
-                )
-
-
-# ============================================================
-# ODHLÁŠENÍ
-# ============================================================
 
 st.divider()
 
 if active:
     st.caption(
-        "Pracovníka lze odhlásit až po "
-        "ukončení aktuální činnosti."
+        "Pracovníka lze odhlásit až po ukončení aktuální činnosti."
     )
 
-logout_clicked = st.button(
+if st.button(
     "🚪 ODHLÁSIT PRACOVNÍKA",
     type="secondary",
     use_container_width=True,
     disabled=bool(active),
-)
-
-if logout_clicked:
+):
     st.session_state.logged_employee_id = None
     st.session_state.selected_activity = None
-
     st.query_params.clear()
-
     st.rerun()
 
-
-# ============================================================
-# HISTORIE PRACOVNÍKA
-# ============================================================
 
 with st.expander(
     "📋 Moje poslední záznamy"
 ):
-    try:
-        history = load_employee_history(
-            db,
-            employee_id,
-            limit=10,
+    history = load_employee_history(
+        db,
+        employee_id,
+        limit=10,
+    )
+
+    history_rows = []
+
+    for row in history:
+        start_local = local_dt(
+            row["start_time"]
         )
 
-        history_rows = []
+        end_value = row.get("end_time")
 
-        for row in history:
-            start_local = local_dt(
-                row["start_time"]
+        if end_value:
+            end_local = local_dt(end_value)
+            end_text = end_local.strftime("%H:%M:%S")
+            duration_text = format_duration(
+                row.get("duration_seconds")
             )
-
-            end_value = row.get("end_time")
-
-            if end_value:
-                end_local = local_dt(end_value)
-
-                end_text = end_local.strftime(
-                    "%H:%M:%S"
-                )
-
-                duration_text = format_duration(
-                    row.get("duration_seconds")
-                )
-
-                status_text = "Dokončeno"
-
-            else:
-                end_text = ""
-
-                duration_text = format_duration(
-                    (
-                        datetime.now(timezone.utc)
-                        - parse_dt(row["start_time"])
-                    ).total_seconds()
-                )
-
-                status_text = "Probíhá"
-
-            history_rows.append(
-                {
-                    "Datum": start_local.strftime(
-                        "%d.%m.%Y"
-                    ),
-                    "Činnost": row["activity"],
-                    "Start": start_local.strftime(
-                        "%H:%M:%S"
-                    ),
-                    "Konec": end_text,
-                    "Trvání": duration_text,
-                    "Stav": status_text,
-                }
-            )
-
-        history_dataframe = pd.DataFrame(
-            history_rows
-        )
-
-        if history_dataframe.empty:
-            st.info(
-                "Zatím nejsou uložené žádné záznamy."
-            )
+            status_text = "Dokončeno"
         else:
-            st.dataframe(
-                history_dataframe,
-                use_container_width=True,
-                hide_index=True,
+            end_text = ""
+            duration_text = format_duration(
+                (
+                    datetime.now(timezone.utc)
+                    - parse_dt(row["start_time"])
+                ).total_seconds()
             )
+            status_text = "Probíhá"
 
-    except Exception as error:
-        st.error(
-            f"Historii se nepodařilo "
-            f"načíst: {error}"
+        history_rows.append(
+            {
+                "Datum": start_local.strftime("%d.%m.%Y"),
+                "Činnost": row["activity"],
+                "Start": start_local.strftime("%H:%M:%S"),
+                "Konec": end_text,
+                "Trvání": duration_text,
+                "Stav": status_text,
+            }
         )
 
+    if history_rows:
+        st.dataframe(
+            pd.DataFrame(history_rows),
+            use_container_width=True,
+            hide_index=True,
+        )
+    else:
+        st.info(
+            "Zatím nejsou uložené žádné záznamy."
+        )
 
-# ============================================================
-# EXPORT DO EXCELU
-# ============================================================
 
 with st.expander(
     "📥 Export do Excelu – posledních 24 hodin"
 ):
-    try:
-        export_rows = load_last_24_hours(db)
+    export_rows = load_last_24_hours(db)
 
-        st.write(
-            f"Počet záznamů: "
-            f"**{len(export_rows)}**"
+    st.write(
+        f"Počet záznamů: **{len(export_rows)}**"
+    )
+
+    excel_data = make_excel(export_rows)
+
+    filename = (
+        "cinnosti_poslednich_24h_"
+        + datetime.now(APP_TZ).strftime(
+            "%Y-%m-%d_%H-%M"
         )
+        + ".xlsx"
+    )
 
-        excel_data = make_excel(export_rows)
-
-        filename = (
-            "cinnosti_poslednich_24h_"
-            + datetime.now(APP_TZ).strftime(
-                "%Y-%m-%d_%H-%M"
-            )
-            + ".xlsx"
-        )
-
-        st.download_button(
-            "STÁHNOUT EXCEL",
-            data=excel_data,
-            file_name=filename,
-            mime=(
-                "application/vnd.openxmlformats-"
-                "officedocument.spreadsheetml.sheet"
-            ),
-            use_container_width=True,
-        )
-
-    except Exception as error:
-        st.error(
-            f"Export se nepodařilo "
-            f"připravit: {error}"
-        )
+    st.download_button(
+        "STÁHNOUT EXCEL",
+        data=excel_data,
+        file_name=filename,
+        mime=(
+            "application/vnd.openxmlformats-"
+            "officedocument.spreadsheetml.sheet"
+        ),
+        use_container_width=True,
+    )
