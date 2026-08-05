@@ -8,9 +8,9 @@ from io import BytesIO
 from zoneinfo import ZoneInfo
 
 from openpyxl import Workbook
-from openpyxl.chart import PieChart, Reference
+from openpyxl.chart import BarChart, PieChart, Reference
 from openpyxl.chart.label import DataLabelList
-from openpyxl.styles import Alignment, Font, PatternFill
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 from supabase import create_client
 
@@ -30,9 +30,25 @@ ACTIVITIES = [
 ]
 
 YUSEN_BLUE = "00529B"
+YUSEN_DARK_BLUE = "003B70"
 YUSEN_ORANGE = "F58220"
 WHITE = "FFFFFF"
 LIGHT_BLUE = "DDEBF7"
+LIGHT_ORANGE = "FCE4D6"
+LIGHT_GREY = "E7E6E6"
+DARK_TEXT = "1F2937"
+
+THIN_GREY_SIDE = Side(
+    style="thin",
+    color="B7C4CE",
+)
+
+TABLE_BORDER = Border(
+    left=THIN_GREY_SIDE,
+    right=THIN_GREY_SIDE,
+    top=THIN_GREY_SIDE,
+    bottom=THIN_GREY_SIDE,
+)
 
 
 # ============================================================
@@ -108,7 +124,10 @@ def get_record_duration(
     )
 
     if saved_duration is not None:
-        return max(0, int(saved_duration))
+        return max(
+            0,
+            int(saved_duration),
+        )
 
     start_time = parse_datetime(
         record["start_time"]
@@ -125,7 +144,7 @@ def get_record_duration(
 
 
 # ============================================================
-# NAČTENÍ ZÁZNAMŮ ZE SUPABASE
+# NAČTENÍ DAT
 # ============================================================
 
 def load_records() -> tuple[
@@ -138,7 +157,10 @@ def load_records() -> tuple[
         SUPABASE_KEY,
     )
 
-    period_end_utc = datetime.now(timezone.utc)
+    period_end_utc = datetime.now(
+        timezone.utc
+    )
+
     period_start_utc = (
         period_end_utc
         - timedelta(hours=24)
@@ -170,7 +192,7 @@ def load_records() -> tuple[
 
 
 # ============================================================
-# SOUHRN
+# VÝPOČTY
 # ============================================================
 
 def calculate_activity_totals(
@@ -193,12 +215,71 @@ def calculate_activity_totals(
             current_utc,
         )
 
-        if activity not in totals:
-            totals[activity] = 0
-
-        totals[activity] += duration
+        totals[activity] = (
+            totals.get(activity, 0)
+            + duration
+        )
 
     return totals
+
+
+def calculate_worker_totals(
+    records: list[dict],
+    current_utc: datetime,
+) -> dict[tuple[str, str], int]:
+    totals: dict[
+        tuple[str, str],
+        int,
+    ] = {}
+
+    for record in records:
+        employee_id = str(
+            record.get("employee_id", "")
+        )
+
+        employee_name = str(
+            record.get("employee_name", "")
+        )
+
+        key = (
+            employee_id,
+            employee_name,
+        )
+
+        duration = get_record_duration(
+            record,
+            current_utc,
+        )
+
+        totals[key] = (
+            totals.get(key, 0)
+            + duration
+        )
+
+    return totals
+
+
+def find_longest_record(
+    records: list[dict],
+    current_utc: datetime,
+) -> tuple[dict | None, int]:
+    longest_record = None
+    longest_duration = 0
+
+    for record in records:
+        duration = get_record_duration(
+            record,
+            current_utc,
+        )
+
+        if duration > longest_duration:
+            longest_record = record
+            longest_duration = duration
+
+    return (
+        longest_record,
+        longest_duration,
+    )
 
 
 # ============================================================
@@ -226,6 +307,27 @@ def style_header_row(
             horizontal="center",
             vertical="center",
         )
+        cell.border = TABLE_BORDER
+
+
+def style_table_area(
+    worksheet,
+    min_row: int,
+    max_row: int,
+    min_column: int,
+    max_column: int,
+) -> None:
+    for row in worksheet.iter_rows(
+        min_row=min_row,
+        max_row=max_row,
+        min_col=min_column,
+        max_col=max_column,
+    ):
+        for cell in row:
+            cell.border = TABLE_BORDER
+            cell.alignment = Alignment(
+                vertical="center",
+            )
 
 
 def set_column_widths(
@@ -242,12 +344,39 @@ def set_column_widths(
         ].width = width
 
 
+def add_section_title(
+    worksheet,
+    cell_reference: str,
+    text: str,
+) -> None:
+    cell = worksheet[cell_reference]
+
+    cell.value = text
+
+    cell.fill = PatternFill(
+        fill_type="solid",
+        fgColor=YUSEN_ORANGE,
+    )
+
+    cell.font = Font(
+        color=WHITE,
+        bold=True,
+        size=13,
+    )
+
+    cell.alignment = Alignment(
+        horizontal="left",
+        vertical="center",
+    )
+
+
 # ============================================================
 # VYTVOŘENÍ EXCELU
 # ============================================================
 
 def create_excel(
     records: list[dict],
+    period_start_utc: datetime,
     period_end_utc: datetime,
 ) -> tuple[bytes, str]:
     workbook = Workbook()
@@ -259,9 +388,13 @@ def create_excel(
         "Souhrn"
     )
 
-    # --------------------------------------------------------
+    worker_sheet = workbook.create_sheet(
+        "Pracovníci"
+    )
+
+    # ========================================================
     # LIST DETAIL
-    # --------------------------------------------------------
+    # ========================================================
 
     detail_headers = [
         "Datum",
@@ -275,14 +408,18 @@ def create_excel(
         "Stav",
     ]
 
-    detail_sheet.append(detail_headers)
+    detail_sheet.append(
+        detail_headers
+    )
 
     for record in records:
         start_local = to_local_datetime(
             record["start_time"]
         )
 
-        end_value = record.get("end_time")
+        end_value = record.get(
+            "end_time"
+        )
 
         end_local = (
             to_local_datetime(end_value)
@@ -337,7 +474,18 @@ def create_excel(
             ]
         )
 
-    style_header_row(detail_sheet)
+    style_header_row(
+        detail_sheet
+    )
+
+    if detail_sheet.max_row >= 2:
+        style_table_area(
+            detail_sheet,
+            min_row=2,
+            max_row=detail_sheet.max_row,
+            min_column=1,
+            max_column=9,
+        )
 
     detail_sheet.freeze_panes = "A2"
     detail_sheet.auto_filter.ref = (
@@ -359,28 +507,92 @@ def create_excel(
         },
     )
 
-    # --------------------------------------------------------
+    # ========================================================
     # LIST SOUHRN
-    # --------------------------------------------------------
+    # ========================================================
 
-    totals = calculate_activity_totals(
-        records,
-        period_end_utc,
+    period_start_local = (
+        period_start_utc.astimezone(
+            APP_TIMEZONE
+        )
     )
 
-    total_seconds = sum(totals.values())
-
-    summary_sheet.append(
-        [
-            "Činnost",
-            "Trvání",
-            "Minuty",
-            "Podíl",
-        ]
+    period_end_local = (
+        period_end_utc.astimezone(
+            APP_TIMEZONE
+        )
     )
+
+    summary_sheet["A1"] = (
+        "DENNÍ PŘEHLED ČINNOSTÍ UWH"
+    )
+
+    summary_sheet["A1"].font = Font(
+        bold=True,
+        size=18,
+        color=YUSEN_DARK_BLUE,
+    )
+
+    summary_sheet["A2"] = (
+        "Období:"
+    )
+
+    summary_sheet["B2"] = (
+        f"{period_start_local.strftime('%d.%m.%Y %H:%M')} "
+        f"až "
+        f"{period_end_local.strftime('%d.%m.%Y %H:%M')}"
+    )
+
+    summary_sheet["A3"] = (
+        "Počet záznamů:"
+    )
+
+    summary_sheet["B3"] = len(
+        records
+    )
+
+    activity_totals = (
+        calculate_activity_totals(
+            records,
+            period_end_utc,
+        )
+    )
+
+    total_seconds = sum(
+        activity_totals.values()
+    )
+
+    summary_sheet["A4"] = (
+        "Celkový zaznamenaný čas:"
+    )
+
+    summary_sheet["B4"] = (
+        format_duration(total_seconds)
+    )
+
+    add_section_title(
+        summary_sheet,
+        "A6",
+        "Rozdělení času podle činností",
+    )
+
+    summary_sheet["A7"] = "Činnost"
+    summary_sheet["B7"] = "Trvání"
+    summary_sheet["C7"] = "Minuty"
+    summary_sheet["D7"] = "Podíl"
+
+    style_header_row(
+        summary_sheet,
+        row_number=7,
+    )
+
+    activity_rows = []
 
     for activity in ACTIVITIES:
-        seconds = totals.get(activity, 0)
+        seconds = activity_totals.get(
+            activity,
+            0,
+        )
 
         percentage = (
             seconds / total_seconds
@@ -388,17 +600,17 @@ def create_excel(
             else 0
         )
 
-        summary_sheet.append(
-            [
+        activity_rows.append(
+            (
                 activity,
-                format_duration(seconds),
-                round(seconds / 60, 2),
+                seconds,
                 percentage,
-            ]
+            )
         )
 
-    # Případné další neznámé činnosti
-    for activity, seconds in totals.items():
+    for activity, seconds in (
+        activity_totals.items()
+    ):
         if activity in ACTIVITIES:
             continue
 
@@ -408,6 +620,21 @@ def create_excel(
             else 0
         )
 
+        activity_rows.append(
+            (
+                activity,
+                seconds,
+                percentage,
+            )
+        )
+
+    current_row = 8
+
+    for (
+        activity,
+        seconds,
+        percentage,
+    ) in activity_rows:
         summary_sheet.append(
             [
                 activity,
@@ -417,37 +644,27 @@ def create_excel(
             ]
         )
 
-    style_header_row(summary_sheet)
-
-    summary_sheet.freeze_panes = "A2"
-    summary_sheet.auto_filter.ref = (
-        summary_sheet.dimensions
-    )
-
-    set_column_widths(
-        summary_sheet,
-        {
-            1: 20,
-            2: 16,
-            3: 16,
-            4: 14,
-        },
-    )
-
-    last_summary_row = (
-        summary_sheet.max_row
-    )
-
-    for row_number in range(
-        2,
-        last_summary_row + 1,
-    ):
         summary_sheet[
-            f"D{row_number}"
+            f"D{current_row}"
         ].number_format = "0.0%"
 
-    # Celkem
-    total_row = last_summary_row + 2
+        current_row += 1
+
+    last_activity_row = (
+        current_row - 1
+    )
+
+    style_table_area(
+        summary_sheet,
+        min_row=8,
+        max_row=last_activity_row,
+        min_column=1,
+        max_column=4,
+    )
+
+    total_row = (
+        last_activity_row + 1
+    )
 
     summary_sheet[
         f"A{total_row}"
@@ -455,16 +672,33 @@ def create_excel(
 
     summary_sheet[
         f"B{total_row}"
-    ] = format_duration(total_seconds)
+    ] = format_duration(
+        total_seconds
+    )
 
     summary_sheet[
         f"C{total_row}"
-    ] = round(total_seconds / 60, 2)
+    ] = round(
+        total_seconds / 60,
+        2,
+    )
 
-    for cell in summary_sheet[total_row]:
+    summary_sheet[
+        f"D{total_row}"
+    ] = (
+        1 if total_seconds > 0 else 0
+    )
+
+    summary_sheet[
+        f"D{total_row}"
+    ].number_format = "0.0%"
+
+    for cell in summary_sheet[
+        total_row
+    ]:
         cell.font = Font(
             bold=True,
-            color=YUSEN_BLUE,
+            color=YUSEN_DARK_BLUE,
         )
 
         cell.fill = PatternFill(
@@ -472,97 +706,409 @@ def create_excel(
             fgColor=LIGHT_BLUE,
         )
 
+        cell.border = TABLE_BORDER
+
+    # --------------------------------------------------------
+    # NEJDELŠÍ JEDNOTLIVÁ ČINNOST
+    # --------------------------------------------------------
+
+    longest_record, longest_duration = (
+        find_longest_record(
+            records,
+            period_end_utc,
+        )
+    )
+
+    longest_title_row = (
+        total_row + 3
+    )
+
+    add_section_title(
+        summary_sheet,
+        f"A{longest_title_row}",
+        "Nejdelší jednotlivý záznam",
+    )
+
+    if longest_record:
+        longest_start = to_local_datetime(
+            longest_record["start_time"]
+        )
+
+        longest_end_value = (
+            longest_record.get(
+                "end_time"
+            )
+        )
+
+        longest_end = (
+            to_local_datetime(
+                longest_end_value
+            )
+            if longest_end_value
+            else None
+        )
+
+        summary_sheet[
+            f"A{longest_title_row + 1}"
+        ] = "Pracovník"
+
+        summary_sheet[
+            f"B{longest_title_row + 1}"
+        ] = longest_record.get(
+            "employee_name",
+            "",
+        )
+
+        summary_sheet[
+            f"A{longest_title_row + 2}"
+        ] = "Činnost"
+
+        summary_sheet[
+            f"B{longest_title_row + 2}"
+        ] = longest_record.get(
+            "activity",
+            "",
+        )
+
+        summary_sheet[
+            f"A{longest_title_row + 3}"
+        ] = "Trvání"
+
+        summary_sheet[
+            f"B{longest_title_row + 3}"
+        ] = format_duration(
+            longest_duration
+        )
+
+        summary_sheet[
+            f"A{longest_title_row + 4}"
+        ] = "Čas"
+
+        summary_sheet[
+            f"B{longest_title_row + 4}"
+        ] = (
+            f"{longest_start.strftime('%H:%M:%S')} – "
+            + (
+                longest_end.strftime(
+                    "%H:%M:%S"
+                )
+                if longest_end
+                else "stále probíhá"
+            )
+        )
+
+        style_table_area(
+            summary_sheet,
+            min_row=longest_title_row + 1,
+            max_row=longest_title_row + 4,
+            min_column=1,
+            max_column=2,
+        )
+
+    else:
+        summary_sheet[
+            f"A{longest_title_row + 1}"
+        ] = (
+            "Za dané období nejsou záznamy."
+        )
+
+    set_column_widths(
+        summary_sheet,
+        {
+            1: 26,
+            2: 26,
+            3: 16,
+            4: 14,
+            5: 3,
+            6: 18,
+            7: 18,
+            8: 18,
+            9: 18,
+        },
+    )
+
     # --------------------------------------------------------
     # KOLÁČOVÝ GRAF
     # --------------------------------------------------------
 
-    chart = PieChart()
+    pie_chart = PieChart()
 
-    chart.title = (
-        "Rozdělení času podle činností"
+    pie_chart.title = (
+        "Podíl činností z celkového času"
     )
 
-    chart.height = 11
-    chart.width = 16
+    pie_chart.height = 10
+    pie_chart.width = 15
 
-    labels = Reference(
+    pie_labels = Reference(
         summary_sheet,
         min_col=1,
-        min_row=2,
-        max_row=last_summary_row,
+        min_row=8,
+        max_row=last_activity_row,
     )
 
-    values = Reference(
+    pie_values = Reference(
         summary_sheet,
         min_col=3,
-        min_row=1,
-        max_row=last_summary_row,
+        min_row=7,
+        max_row=last_activity_row,
     )
 
-    chart.add_data(
-        values,
+    pie_chart.add_data(
+        pie_values,
         titles_from_data=True,
     )
 
-    chart.set_categories(labels)
+    pie_chart.set_categories(
+        pie_labels
+    )
 
-    chart.dataLabels = DataLabelList()
-    chart.dataLabels.showPercent = True
-    chart.dataLabels.showLeaderLines = True
-    chart.dataLabels.showLegendKey = False
+    pie_chart.legend.position = "r"
+
+    pie_chart.dataLabels = (
+        DataLabelList()
+    )
+
+    # Na grafu budou pouze procenta.
+    pie_chart.dataLabels.showPercent = True
+    pie_chart.dataLabels.showVal = False
+    pie_chart.dataLabels.showCatName = False
+    pie_chart.dataLabels.showSerName = False
+    pie_chart.dataLabels.showLegendKey = False
+    pie_chart.dataLabels.showLeaderLines = True
 
     summary_sheet.add_chart(
-        chart,
+        pie_chart,
         "F2",
     )
 
-    # Zvýraznění názvu souhrnu
-    summary_sheet["F15"] = (
-        "Procenta jsou vypočítána "
-        "z celkového času všech činností."
+    # --------------------------------------------------------
+    # SLOUPCOVÝ GRAF
+    # --------------------------------------------------------
+
+    bar_chart = BarChart()
+
+    bar_chart.type = "bar"
+    bar_chart.style = 10
+
+    bar_chart.title = (
+        "Čas jednotlivých činností v minutách"
     )
 
-    summary_sheet["F15"].font = Font(
-        italic=True,
-        color=YUSEN_BLUE,
+    bar_chart.y_axis.title = (
+        "Činnost"
     )
 
-    # --------------------------------------------------------
-    # ULOŽENÍ DO PAMĚTI
-    # --------------------------------------------------------
+    bar_chart.x_axis.title = (
+        "Minuty"
+    )
+
+    bar_chart.height = 8
+    bar_chart.width = 15
+
+    bar_values = Reference(
+        summary_sheet,
+        min_col=3,
+        min_row=7,
+        max_row=last_activity_row,
+    )
+
+    bar_labels = Reference(
+        summary_sheet,
+        min_col=1,
+        min_row=8,
+        max_row=last_activity_row,
+    )
+
+    bar_chart.add_data(
+        bar_values,
+        titles_from_data=True,
+    )
+
+    bar_chart.set_categories(
+        bar_labels
+    )
+
+    bar_chart.legend = None
+
+    summary_sheet.add_chart(
+        bar_chart,
+        "F22",
+    )
+
+    summary_sheet.freeze_panes = "A7"
+
+    # ========================================================
+    # LIST PRACOVNÍCI
+    # ========================================================
+
+    worker_totals = (
+        calculate_worker_totals(
+            records,
+            period_end_utc,
+        )
+    )
+
+    worker_sheet.append(
+        [
+            "ID",
+            "Pracovník",
+            "Celkový čas",
+            "Minuty",
+            "Podíl",
+            "Počet záznamů",
+        ]
+    )
+
+    style_header_row(
+        worker_sheet
+    )
+
+    worker_record_counts: dict[
+        tuple[str, str],
+        int,
+    ] = {}
+
+    for record in records:
+        key = (
+            str(
+                record.get(
+                    "employee_id",
+                    "",
+                )
+            ),
+            str(
+                record.get(
+                    "employee_name",
+                    "",
+                )
+            ),
+        )
+
+        worker_record_counts[key] = (
+            worker_record_counts.get(
+                key,
+                0,
+            )
+            + 1
+        )
+
+    sorted_workers = sorted(
+        worker_totals.items(),
+        key=lambda item: item[1],
+        reverse=True,
+    )
+
+    worker_row = 2
+
+    for (
+        employee_id,
+        employee_name,
+    ), seconds in sorted_workers:
+        percentage = (
+            seconds / total_seconds
+            if total_seconds > 0
+            else 0
+        )
+
+        worker_sheet.append(
+            [
+                employee_id,
+                employee_name,
+                format_duration(seconds),
+                round(seconds / 60, 2),
+                percentage,
+                worker_record_counts.get(
+                    (
+                        employee_id,
+                        employee_name,
+                    ),
+                    0,
+                ),
+            ]
+        )
+
+        worker_sheet[
+            f"E{worker_row}"
+        ].number_format = "0.0%"
+
+        worker_row += 1
+
+    if worker_sheet.max_row >= 2:
+        style_table_area(
+            worker_sheet,
+            min_row=2,
+            max_row=worker_sheet.max_row,
+            min_column=1,
+            max_column=6,
+        )
+
+    worker_sheet.freeze_panes = "A2"
+    worker_sheet.auto_filter.ref = (
+        worker_sheet.dimensions
+    )
+
+    set_column_widths(
+        worker_sheet,
+        {
+            1: 12,
+            2: 30,
+            3: 16,
+            4: 14,
+            5: 14,
+            6: 16,
+        },
+    )
+
+    # ========================================================
+    # ULOŽENÍ
+    # ========================================================
 
     output = BytesIO()
-    workbook.save(output)
 
-    current_local = datetime.now(
-        APP_TIMEZONE
+    workbook.save(
+        output
     )
 
     filename = (
         "prehled_cinnosti_"
-        + current_local.strftime(
+        + period_end_local.strftime(
             "%Y-%m-%d_%H-%M"
         )
         + ".xlsx"
     )
 
-    return output.getvalue(), filename
+    return (
+        output.getvalue(),
+        filename,
+    )
 
 
 # ============================================================
-# TEXT SOUHRNU DO E-MAILU
+# TEXT DO E-MAILU
 # ============================================================
 
 def create_email_summary(
     records: list[dict],
     period_end_utc: datetime,
 ) -> str:
-    totals = calculate_activity_totals(
-        records,
-        period_end_utc,
+    activity_totals = (
+        calculate_activity_totals(
+            records,
+            period_end_utc,
+        )
     )
 
-    total_seconds = sum(totals.values())
+    total_seconds = sum(
+        activity_totals.values()
+    )
+
+    longest_record, longest_duration = (
+        find_longest_record(
+            records,
+            period_end_utc,
+        )
+    )
 
     lines = [
         "Souhrn podle činností:",
@@ -570,7 +1116,10 @@ def create_email_summary(
     ]
 
     for activity in ACTIVITIES:
-        seconds = totals.get(activity, 0)
+        seconds = activity_totals.get(
+            activity,
+            0,
+        )
 
         percentage = (
             seconds / total_seconds * 100
@@ -594,7 +1143,22 @@ def create_email_summary(
         ]
     )
 
-    return "\n".join(lines)
+    if longest_record:
+        lines.extend(
+            [
+                "",
+                "Nejdelší jednotlivý záznam:",
+                (
+                    f"{longest_record.get('employee_name', '')} – "
+                    f"{longest_record.get('activity', '')} – "
+                    f"{format_duration(longest_duration)}"
+                ),
+            ]
+        )
+
+    return "\n".join(
+        lines
+    )
 
 
 # ============================================================
@@ -620,15 +1184,23 @@ def send_email(
         )
     )
 
-    summary_text = create_email_summary(
-        records,
-        period_end_utc,
+    summary_text = (
+        create_email_summary(
+            records,
+            period_end_utc,
+        )
     )
 
     message = EmailMessage()
 
-    message["From"] = GMAIL_ADDRESS
-    message["To"] = REPORT_RECIPIENT
+    message["From"] = (
+        GMAIL_ADDRESS
+    )
+
+    message["To"] = (
+        REPORT_RECIPIENT
+    )
+
     message["Subject"] = (
         "Denní přehled činností UWH – "
         + period_end_local.strftime(
@@ -650,9 +1222,10 @@ Počet záznamů: {len(records)}
 
 {summary_text}
 
-Excel obsahuje dvě záložky:
+Excel obsahuje:
 - Detail – všechny jednotlivé záznamy,
-- Souhrn – procentuální přehled a koláčový graf.
+- Souhrn – procenta, grafy a nejdelší záznam,
+- Pracovníci – součet času podle pracovníků.
 
 Tento e-mail byl vytvořen automaticky.
 """
@@ -678,7 +1251,9 @@ Tento e-mail byl vytvořen automaticky.
             GMAIL_APP_PASSWORD,
         )
 
-        smtp.send_message(message)
+        smtp.send_message(
+            message
+        )
 
 
 # ============================================================
@@ -687,8 +1262,8 @@ Tento e-mail byl vytvořen automaticky.
 
 def main() -> None:
     print(
-        "Spouštím nový report s listy "
-        "Detail a Souhrn."
+        "Spouštím nový report: "
+        "Detail, Souhrn a Pracovníci."
     )
 
     (
@@ -697,9 +1272,12 @@ def main() -> None:
         period_end_utc,
     ) = load_records()
 
-    excel_data, filename = create_excel(
-        records,
-        period_end_utc,
+    excel_data, filename = (
+        create_excel(
+            records,
+            period_start_utc,
+            period_end_utc,
+        )
     )
 
     send_email(
@@ -716,11 +1294,13 @@ def main() -> None:
     )
 
     print(
-        f"Název přílohy: {filename}"
+        f"Název přílohy: "
+        f"{filename}"
     )
 
     print(
-        f"Počet záznamů: {len(records)}"
+        f"Počet záznamů: "
+        f"{len(records)}"
     )
 
 
