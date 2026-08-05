@@ -2,8 +2,7 @@ name: Denní report činností
 
 on:
   schedule:
-    - cron: "0 13 * * *"
-      timezone: "Europe/Prague"
+    - cron: "7 12 * * *"   # 14:07 v létě (CEST = UTC+2)
 
   workflow_dispatch:
 
