@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from io import BytesIO
+from textwrap import dedent
 from zoneinfo import ZoneInfo
 
 import pandas as pd
@@ -75,10 +76,21 @@ st.set_page_config(
 
 
 # ============================================================
+# HTML FUNKCE
+# ============================================================
+
+def render_html(html: str) -> None:
+    st.markdown(
+        dedent(html).strip(),
+        unsafe_allow_html=True,
+    )
+
+
+# ============================================================
 # VZHLED APLIKACE
 # ============================================================
 
-st.markdown(
+render_html(
     f"""
     <style>
         #MainMenu {{
@@ -146,7 +158,7 @@ st.markdown(
         }}
 
         .user-id {{
-            color: #555;
+            color: #404B55;
             font-size: 0.95rem;
             margin-top: 4px;
         }}
@@ -172,7 +184,7 @@ st.markdown(
         }}
 
         .status-label {{
-            color: #666;
+            color: #4B5560;
             font-size: 0.95rem;
             font-weight: 800;
             text-transform: uppercase;
@@ -194,7 +206,7 @@ st.markdown(
         }}
 
         .status-start {{
-            color: #5E6872;
+            color: #46515C;
             font-size: 0.95rem;
             margin-top: 10px;
         }}
@@ -207,14 +219,32 @@ st.markdown(
         }}
 
         .small-note {{
-            color: #5E6872;
+            color: #46515C;
             text-align: center;
             font-size: 0.9rem;
             margin-top: 8px;
         }}
 
-        div[data-testid="stSelectbox"] label {{
+        .selected-box {{
+            background: #E4EFFA;
+            border: 2px solid #A8CAE8;
+            border-left: 8px solid {YUSEN_ORANGE};
+            border-radius: 12px;
+            padding: 15px 16px;
+            margin: 12px 0 15px;
             color: {YUSEN_DARK_BLUE};
+            font-size: 1.05rem;
+            font-weight: 700;
+            box-shadow: 0 2px 8px rgba(0, 82, 155, 0.10);
+        }}
+
+        .selected-box strong {{
+            color: {YUSEN_DARK_BLUE};
+            font-weight: 900;
+        }}
+
+        div[data-testid="stSelectbox"] label {{
+            color: {YUSEN_DARK_BLUE} !important;
             font-size: 1.08rem;
             font-weight: 900;
         }}
@@ -223,6 +253,8 @@ st.markdown(
             min-height: 58px;
             border-radius: 13px;
             font-size: 1.05rem;
+            background: white;
+            color: {YUSEN_DARK_BLUE};
         }}
 
         div.stButton > button {{
@@ -270,10 +302,85 @@ st.markdown(
             font-weight: 900;
         }}
 
+        /* HLÁŠKY SUCCESS, WARNING, INFO A ERROR */
+
+        div[data-testid="stAlert"] {{
+            border-radius: 12px;
+            font-weight: 700;
+        }}
+
+        div[data-testid="stAlert"] p {{
+            color: {YUSEN_DARK_BLUE} !important;
+            font-weight: 700 !important;
+        }}
+
+        div[data-testid="stAlert"] strong {{
+            color: {YUSEN_DARK_BLUE} !important;
+            font-weight: 900 !important;
+        }}
+
+        /* ROZBALOVACÍ NABÍDKY */
+
         div[data-testid="stExpander"] {{
+            background: white !important;
+            border: 1px solid #B9C8D6 !important;
+            border-radius: 14px !important;
+            overflow: hidden;
+            box-shadow: 0 2px 7px rgba(0, 59, 112, 0.07);
+        }}
+
+        div[data-testid="stExpander"] details {{
+            background: white !important;
+        }}
+
+        div[data-testid="stExpander"] summary {{
+            background: white !important;
+            color: {YUSEN_DARK_BLUE} !important;
+            min-height: 55px;
+            font-weight: 800 !important;
+        }}
+
+        div[data-testid="stExpander"] summary:hover {{
+            background: #EAF2FA !important;
+        }}
+
+        div[data-testid="stExpander"] summary p {{
+            color: {YUSEN_DARK_BLUE} !important;
+            font-weight: 800 !important;
+            opacity: 1 !important;
+        }}
+
+        div[data-testid="stExpander"] summary span {{
+            color: {YUSEN_DARK_BLUE} !important;
+            opacity: 1 !important;
+        }}
+
+        div[data-testid="stExpander"] summary svg {{
+            fill: {YUSEN_DARK_BLUE} !important;
+            color: {YUSEN_DARK_BLUE} !important;
+            opacity: 1 !important;
+        }}
+
+        div[data-testid="stExpander"] div[data-testid="stExpanderDetails"] {{
+            background: white !important;
+            color: {YUSEN_DARK_BLUE} !important;
+        }}
+
+        div[data-testid="stExpander"] div[data-testid="stExpanderDetails"] p {{
+            color: {YUSEN_DARK_BLUE} !important;
+        }}
+
+        /* TABULKA */
+
+        div[data-testid="stDataFrame"] {{
             background: white;
-            border-radius: 14px;
-            border: 1px solid #D5DCE3;
+            border-radius: 10px;
+        }}
+
+        /* BĚŽNÝ TEXT */
+
+        .stCaption p {{
+            color: #46515C !important;
         }}
 
         @media (max-width: 600px) {{
@@ -295,24 +402,28 @@ st.markdown(
             }}
         }}
     </style>
-    """,
-    unsafe_allow_html=True,
+    """
 )
 
 
 # ============================================================
-# SESSION STATE
+# SESSION STATE A ZACHOVÁNÍ PŘIHLÁŠENÍ
 # ============================================================
 
+employee_from_url = st.query_params.get("employee")
+
 if "logged_employee_id" not in st.session_state:
-    st.session_state.logged_employee_id = None
+    if employee_from_url in PRACOVNICI:
+        st.session_state.logged_employee_id = employee_from_url
+    else:
+        st.session_state.logged_employee_id = None
 
 if "selected_activity" not in st.session_state:
     st.session_state.selected_activity = None
 
 
 # ============================================================
-# PŘIPOJENÍ K SUPABASE
+# SUPABASE
 # ============================================================
 
 @st.cache_resource
@@ -333,7 +444,7 @@ db = get_supabase()
 
 
 # ============================================================
-# POMOCNÉ FUNKCE
+# ČASOVÉ FUNKCE
 # ============================================================
 
 def parse_dt(value: str) -> datetime:
@@ -356,6 +467,10 @@ def format_duration(
 
     return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
 
+
+# ============================================================
+# DATABÁZOVÉ FUNKCE
+# ============================================================
 
 def get_active_record(
     database: Client,
@@ -404,11 +519,7 @@ def end_activity(
 
     duration_seconds = max(
         0,
-        int(
-            (
-                end_time - start_time
-            ).total_seconds()
-        ),
+        int((end_time - start_time).total_seconds()),
     )
 
     (
@@ -472,16 +583,14 @@ def make_excel(
     output_rows = []
 
     for row in rows:
-        start_local = local_dt(
-            row["start_time"]
-        )
-
+        start_local = local_dt(row["start_time"])
         end_value = row.get("end_time")
 
-        if end_value:
-            end_local = local_dt(end_value)
-        else:
-            end_local = None
+        end_local = (
+            local_dt(end_value)
+            if end_value
+            else None
+        )
 
         if row.get("duration_seconds") is not None:
             duration_seconds = int(
@@ -588,14 +697,13 @@ def make_excel(
 # HLAVIČKA
 # ============================================================
 
-st.markdown(
+render_html(
     """
     <div class="app-header">
         <h1>MĚŘENÍ ČINNOSTÍ</h1>
         <p>UWH • pracovní evidence</p>
     </div>
-    """,
-    unsafe_allow_html=True,
+    """
 )
 
 
@@ -604,13 +712,12 @@ st.markdown(
 # ============================================================
 
 if not st.session_state.logged_employee_id:
-    st.markdown(
+    render_html(
         """
         <div class="section-title">
             Přihlášení pracovníka
         </div>
-        """,
-        unsafe_allow_html=True,
+        """
     )
 
     employee_options = {
@@ -620,9 +727,7 @@ if not st.session_state.logged_employee_id:
 
     selected_employee = st.selectbox(
         "Vyber pracovníka",
-        options=list(
-            employee_options.keys()
-        ),
+        options=list(employee_options.keys()),
         index=None,
         placeholder="Klikni a vyber své jméno",
     )
@@ -635,21 +740,28 @@ if not st.session_state.logged_employee_id:
     )
 
     if login_clicked:
+        selected_employee_id = employee_options[
+            selected_employee
+        ]
+
         st.session_state.logged_employee_id = (
-            employee_options[selected_employee]
+            selected_employee_id
         )
 
         st.session_state.selected_activity = None
 
+        st.query_params["employee"] = (
+            selected_employee_id
+        )
+
         st.rerun()
 
-    st.markdown(
+    render_html(
         """
         <div class="small-note">
             Vyber své jméno a klikni na PŘIHLÁSIT.
         </div>
-        """,
-        unsafe_allow_html=True,
+        """
     )
 
     st.stop()
@@ -659,30 +771,31 @@ if not st.session_state.logged_employee_id:
 # PŘIHLÁŠENÝ PRACOVNÍK
 # ============================================================
 
-employee_id = (
-    st.session_state.logged_employee_id
-)
+employee_id = st.session_state.logged_employee_id
+
+if employee_id not in PRACOVNICI:
+    st.session_state.logged_employee_id = None
+    st.query_params.clear()
+    st.rerun()
 
 employee_name = PRACOVNICI[employee_id]
 
-st.markdown(
+render_html(
     f"""
     <div class="user-box">
         <div class="user-name">
             👤 {employee_name}
         </div>
-
         <div class="user-id">
             Osobní ID: {employee_id}
         </div>
     </div>
-    """,
-    unsafe_allow_html=True,
+    """
 )
 
 
 # ============================================================
-# NAČTENÍ AKTUÁLNÍ ČINNOSTI
+# AKTUÁLNÍ ČINNOST
 # ============================================================
 
 try:
@@ -711,38 +824,28 @@ if active:
         elapsed_seconds = int(
             (
                 datetime.now(timezone.utc)
-                - parse_dt(
-                    active["start_time"]
-                )
+                - parse_dt(active["start_time"])
             ).total_seconds()
         )
 
-        st.markdown(
+        render_html(
             f"""
             <div class="status-running">
                 <div class="status-label">
                     Aktuálně probíhá
                 </div>
-
                 <div class="status-activity">
                     {active["activity"].upper()}
                 </div>
-
                 <div class="status-time">
                     {format_duration(elapsed_seconds)}
                 </div>
-
                 <div class="status-start">
                     Začátek:
-                    {
-                        started_local.strftime(
-                            "%d.%m.%Y %H:%M:%S"
-                        )
-                    }
+                    {started_local.strftime("%d.%m.%Y %H:%M:%S")}
                 </div>
             </div>
-            """,
-            unsafe_allow_html=True,
+            """
         )
 
     live_timer()
@@ -765,8 +868,7 @@ if active:
             st.success(
                 f"Činnost {active['activity']} "
                 f"byla ukončena. "
-                f"Trvání: "
-                f"{format_duration(duration)}"
+                f"Trvání: {format_duration(duration)}"
             )
 
             st.rerun()
@@ -779,43 +881,39 @@ if active:
 
 
 # ============================================================
-# ŽÁDNÁ ČINNOST NEBĚŽÍ
+# VÝBĚR A START ČINNOSTI
 # ============================================================
 
 else:
-    st.markdown(
+    render_html(
         """
         <div class="status-idle">
             <div class="status-label">
                 Aktuální stav
             </div>
-
             <div class="status-activity">
                 ŽÁDNÁ ČINNOST
             </div>
         </div>
-        """,
-        unsafe_allow_html=True,
+        """
     )
 
-    st.markdown(
+    render_html(
         """
         <div class="section-title">
             1. Vyber činnost
         </div>
-        """,
-        unsafe_allow_html=True,
+        """
     )
 
     column_left, column_right = st.columns(2)
 
-    for index, activity in enumerate(
-        CINNOSTI
-    ):
-        if index % 2 == 0:
-            target_column = column_left
-        else:
-            target_column = column_right
+    for index, activity in enumerate(CINNOSTI):
+        target_column = (
+            column_left
+            if index % 2 == 0
+            else column_right
+        )
 
         with target_column:
             is_selected = (
@@ -823,14 +921,17 @@ else:
                 == activity
             )
 
-            if is_selected:
-                button_text = (
-                    f"✅ {activity.upper()}"
-                )
-                button_type = "primary"
-            else:
-                button_text = activity.upper()
-                button_type = "secondary"
+            button_text = (
+                f"✅ {activity.upper()}"
+                if is_selected
+                else activity.upper()
+            )
+
+            button_type = (
+                "primary"
+                if is_selected
+                else "secondary"
+            )
 
             activity_clicked = st.button(
                 button_text,
@@ -843,26 +944,30 @@ else:
                 st.session_state.selected_activity = (
                     activity
                 )
-
                 st.rerun()
 
     if st.session_state.selected_activity:
-        st.success(
-            "Vybraná činnost: "
-            f"**{st.session_state.selected_activity}**"
+        render_html(
+            f"""
+            <div class="selected-box">
+                Vybraná činnost:
+                <strong>
+                    {st.session_state.selected_activity}
+                </strong>
+            </div>
+            """
         )
     else:
         st.warning(
             "Nejdříve vyber jednu činnost."
         )
 
-    st.markdown(
+    render_html(
         """
         <div class="section-title">
             2. Zahaj měření
         </div>
-        """,
-        unsafe_allow_html=True,
+        """
     )
 
     start_clicked = st.button(
@@ -937,6 +1042,8 @@ if logout_clicked:
     st.session_state.logged_employee_id = None
     st.session_state.selected_activity = None
 
+    st.query_params.clear()
+
     st.rerun()
 
 
@@ -964,9 +1071,7 @@ with st.expander(
             end_value = row.get("end_time")
 
             if end_value:
-                end_local = local_dt(
-                    end_value
-                )
+                end_local = local_dt(end_value)
 
                 end_text = end_local.strftime(
                     "%H:%M:%S"
@@ -984,9 +1089,7 @@ with st.expander(
                 duration_text = format_duration(
                     (
                         datetime.now(timezone.utc)
-                        - parse_dt(
-                            row["start_time"]
-                        )
+                        - parse_dt(row["start_time"])
                     ).total_seconds()
                 )
 
@@ -1011,11 +1114,16 @@ with st.expander(
             history_rows
         )
 
-        st.dataframe(
-            history_dataframe,
-            use_container_width=True,
-            hide_index=True,
-        )
+        if history_dataframe.empty:
+            st.info(
+                "Zatím nejsou uložené žádné záznamy."
+            )
+        else:
+            st.dataframe(
+                history_dataframe,
+                use_container_width=True,
+                hide_index=True,
+            )
 
     except Exception as error:
         st.error(
@@ -1032,18 +1140,14 @@ with st.expander(
     "📥 Export do Excelu – posledních 24 hodin"
 ):
     try:
-        export_rows = load_last_24_hours(
-            db
-        )
+        export_rows = load_last_24_hours(db)
 
         st.write(
             f"Počet záznamů: "
             f"**{len(export_rows)}**"
         )
 
-        excel_data = make_excel(
-            export_rows
-        )
+        excel_data = make_excel(export_rows)
 
         filename = (
             "cinnosti_poslednich_24h_"
