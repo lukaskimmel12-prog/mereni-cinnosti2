@@ -7,16 +7,21 @@ from email.message import EmailMessage
 from io import BytesIO
 from zoneinfo import ZoneInfo
 
-import pandas as pd
+from openpyxl import Workbook
 from openpyxl.chart import PieChart, Reference
 from openpyxl.chart.label import DataLabelList
 from openpyxl.styles import Alignment, Font, PatternFill
+from openpyxl.utils import get_column_letter
 from supabase import create_client
 
 
-TIMEZONE = ZoneInfo("Europe/Prague")
+# ============================================================
+# NASTAVENÍ
+# ============================================================
 
-ACTIVITY_ORDER = [
+APP_TIMEZONE = ZoneInfo("Europe/Prague")
+
+ACTIVITIES = [
     "Aperam",
     "Personna",
     "SSI",
@@ -24,8 +29,17 @@ ACTIVITY_ORDER = [
     "Rebound",
 ]
 
+YUSEN_BLUE = "00529B"
+YUSEN_ORANGE = "F58220"
+WHITE = "FFFFFF"
+LIGHT_BLUE = "DDEBF7"
 
-def get_secret(name: str) -> str:
+
+# ============================================================
+# GITHUB SECRETS
+# ============================================================
+
+def get_required_secret(name: str) -> str:
     value = os.getenv(name)
 
     if not value:
@@ -36,12 +50,20 @@ def get_secret(name: str) -> str:
     return value
 
 
-SUPABASE_URL = get_secret("SUPABASE_URL")
-SUPABASE_KEY = get_secret("SUPABASE_KEY")
-GMAIL_ADDRESS = get_secret("GMAIL_ADDRESS")
-GMAIL_APP_PASSWORD = get_secret("GMAIL_APP_PASSWORD")
-REPORT_RECIPIENT = get_secret("REPORT_RECIPIENT")
+SUPABASE_URL = get_required_secret("SUPABASE_URL")
+SUPABASE_KEY = get_required_secret("SUPABASE_KEY")
+GMAIL_ADDRESS = get_required_secret("GMAIL_ADDRESS")
+GMAIL_APP_PASSWORD = get_required_secret(
+    "GMAIL_APP_PASSWORD"
+)
+REPORT_RECIPIENT = get_required_secret(
+    "REPORT_RECIPIENT"
+)
 
+
+# ============================================================
+# DATUM A ČAS
+# ============================================================
 
 def parse_datetime(value: str) -> datetime:
     return datetime.fromisoformat(
@@ -49,17 +71,16 @@ def parse_datetime(value: str) -> datetime:
     )
 
 
-def to_local_time(value: str) -> datetime:
-    return parse_datetime(value).astimezone(TIMEZONE)
+def to_local_datetime(value: str) -> datetime:
+    return parse_datetime(value).astimezone(
+        APP_TIMEZONE
+    )
 
 
 def format_duration(
     seconds: int | float | None,
 ) -> str:
-    total_seconds = max(
-        0,
-        int(seconds or 0),
-    )
+    total_seconds = max(0, int(seconds or 0))
 
     hours, remainder = divmod(
         total_seconds,
@@ -71,156 +92,178 @@ def format_duration(
         60,
     )
 
-    return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
-
-
-def load_records() -> list[dict]:
-    database = create_client(
-        SUPABASE_URL,
-        SUPABASE_KEY,
+    return (
+        f"{hours:02d}:"
+        f"{minutes:02d}:"
+        f"{seconds:02d}"
     )
 
-    period_end = datetime.now(timezone.utc)
-    period_start = period_end - timedelta(hours=24)
 
-    response = (
-        database.table("activity_log")
-        .select("*")
-        .gte("start_time", period_start.isoformat())
-        .lt("start_time", period_end.isoformat())
-        .order("start_time", desc=False)
-        .execute()
-    )
-
-    return response.data or []
-
-
-def get_duration_seconds(
+def get_record_duration(
     record: dict,
     current_utc: datetime,
 ) -> int:
-    if record.get("duration_seconds") is not None:
-        return max(
-            0,
-            int(record["duration_seconds"]),
-        )
+    saved_duration = record.get(
+        "duration_seconds"
+    )
+
+    if saved_duration is not None:
+        return max(0, int(saved_duration))
+
+    start_time = parse_datetime(
+        record["start_time"]
+    )
 
     return max(
         0,
         int(
             (
-                current_utc
-                - parse_datetime(record["start_time"])
+                current_utc - start_time
             ).total_seconds()
         ),
     )
 
 
-def calculate_summary(
+# ============================================================
+# NAČTENÍ ZÁZNAMŮ ZE SUPABASE
+# ============================================================
+
+def load_records() -> tuple[
+    list[dict],
+    datetime,
+    datetime,
+]:
+    database = create_client(
+        SUPABASE_URL,
+        SUPABASE_KEY,
+    )
+
+    period_end_utc = datetime.now(timezone.utc)
+    period_start_utc = (
+        period_end_utc
+        - timedelta(hours=24)
+    )
+
+    response = (
+        database.table("activity_log")
+        .select("*")
+        .gte(
+            "start_time",
+            period_start_utc.isoformat(),
+        )
+        .lt(
+            "start_time",
+            period_end_utc.isoformat(),
+        )
+        .order(
+            "start_time",
+            desc=False,
+        )
+        .execute()
+    )
+
+    return (
+        response.data or [],
+        period_start_utc,
+        period_end_utc,
+    )
+
+
+# ============================================================
+# SOUHRN
+# ============================================================
+
+def calculate_activity_totals(
     records: list[dict],
-) -> list[dict]:
+    current_utc: datetime,
+) -> dict[str, int]:
     totals = {
         activity: 0
-        for activity in ACTIVITY_ORDER
+        for activity in ACTIVITIES
     }
 
-    current_utc = datetime.now(timezone.utc)
-
     for record in records:
-        activity = record["activity"]
+        activity = record.get(
+            "activity",
+            "Neznámá",
+        )
 
-        duration = get_duration_seconds(
+        duration = get_record_duration(
             record,
             current_utc,
         )
 
-        totals[activity] = (
-            totals.get(activity, 0)
-            + duration
+        if activity not in totals:
+            totals[activity] = 0
+
+        totals[activity] += duration
+
+    return totals
+
+
+# ============================================================
+# FORMÁTOVÁNÍ EXCELU
+# ============================================================
+
+def style_header_row(
+    worksheet,
+    row_number: int = 1,
+) -> None:
+    fill = PatternFill(
+        fill_type="solid",
+        fgColor=YUSEN_BLUE,
+    )
+
+    font = Font(
+        color=WHITE,
+        bold=True,
+    )
+
+    for cell in worksheet[row_number]:
+        cell.fill = fill
+        cell.font = font
+        cell.alignment = Alignment(
+            horizontal="center",
+            vertical="center",
         )
 
-    total_seconds = sum(totals.values())
 
-    summary = []
-
-    for activity in ACTIVITY_ORDER:
-        seconds = totals.get(activity, 0)
-
-        if total_seconds > 0:
-            percentage = (
-                seconds / total_seconds
-            )
-        else:
-            percentage = 0
-
-        summary.append(
-            {
-                "Činnost": activity,
-                "Trvání": format_duration(seconds),
-                "Minuty": round(seconds / 60, 2),
-                "Podíl": percentage,
-            }
+def set_column_widths(
+    worksheet,
+    widths: dict[int, float],
+) -> None:
+    for column_number, width in widths.items():
+        column_letter = get_column_letter(
+            column_number
         )
 
-    return summary
+        worksheet.column_dimensions[
+            column_letter
+        ].width = width
 
+
+# ============================================================
+# VYTVOŘENÍ EXCELU
+# ============================================================
 
 def create_excel(
     records: list[dict],
+    period_end_utc: datetime,
 ) -> tuple[bytes, str]:
-    detail_rows = []
-    current_utc = datetime.now(timezone.utc)
+    workbook = Workbook()
 
-    for record in records:
-        start_local = to_local_time(
-            record["start_time"]
-        )
+    detail_sheet = workbook.active
+    detail_sheet.title = "Detail"
 
-        end_value = record.get("end_time")
+    summary_sheet = workbook.create_sheet(
+        "Souhrn"
+    )
 
-        end_local = (
-            to_local_time(end_value)
-            if end_value
-            else None
-        )
+    # --------------------------------------------------------
+    # LIST DETAIL
+    # --------------------------------------------------------
 
-        duration_seconds = get_duration_seconds(
-            record,
-            current_utc,
-        )
-
-        detail_rows.append(
-            {
-                "Datum": start_local.strftime(
-                    "%d.%m.%Y"
-                ),
-                "ID": record["employee_id"],
-                "Jméno": record["employee_name"],
-                "Činnost": record["activity"],
-                "Start": start_local.strftime(
-                    "%H:%M:%S"
-                ),
-                "Konec": (
-                    end_local.strftime("%H:%M:%S")
-                    if end_local
-                    else ""
-                ),
-                "Trvání": format_duration(
-                    duration_seconds
-                ),
-                "Trvání v minutách": round(
-                    duration_seconds / 60,
-                    2,
-                ),
-                "Stav": (
-                    "Dokončeno"
-                    if end_value
-                    else "Probíhá"
-                ),
-            }
-        )
-
-    detail_columns = [
+    detail_headers = [
         "Datum",
         "ID",
         "Jméno",
@@ -232,180 +275,355 @@ def create_excel(
         "Stav",
     ]
 
-    detail_dataframe = pd.DataFrame(
-        detail_rows,
-        columns=detail_columns,
+    detail_sheet.append(detail_headers)
+
+    for record in records:
+        start_local = to_local_datetime(
+            record["start_time"]
+        )
+
+        end_value = record.get("end_time")
+
+        end_local = (
+            to_local_datetime(end_value)
+            if end_value
+            else None
+        )
+
+        duration_seconds = get_record_duration(
+            record,
+            period_end_utc,
+        )
+
+        detail_sheet.append(
+            [
+                start_local.strftime(
+                    "%d.%m.%Y"
+                ),
+                record.get(
+                    "employee_id",
+                    "",
+                ),
+                record.get(
+                    "employee_name",
+                    "",
+                ),
+                record.get(
+                    "activity",
+                    "",
+                ),
+                start_local.strftime(
+                    "%H:%M:%S"
+                ),
+                (
+                    end_local.strftime(
+                        "%H:%M:%S"
+                    )
+                    if end_local
+                    else ""
+                ),
+                format_duration(
+                    duration_seconds
+                ),
+                round(
+                    duration_seconds / 60,
+                    2,
+                ),
+                (
+                    "Dokončeno"
+                    if end_value
+                    else "Probíhá"
+                ),
+            ]
+        )
+
+    style_header_row(detail_sheet)
+
+    detail_sheet.freeze_panes = "A2"
+    detail_sheet.auto_filter.ref = (
+        detail_sheet.dimensions
     )
 
-    summary_rows = calculate_summary(records)
+    set_column_widths(
+        detail_sheet,
+        {
+            1: 14,
+            2: 12,
+            3: 28,
+            4: 18,
+            5: 12,
+            6: 12,
+            7: 14,
+            8: 21,
+            9: 14,
+        },
+    )
 
-    summary_dataframe = pd.DataFrame(
-        summary_rows,
-        columns=[
+    # --------------------------------------------------------
+    # LIST SOUHRN
+    # --------------------------------------------------------
+
+    totals = calculate_activity_totals(
+        records,
+        period_end_utc,
+    )
+
+    total_seconds = sum(totals.values())
+
+    summary_sheet.append(
+        [
             "Činnost",
             "Trvání",
             "Minuty",
             "Podíl",
-        ],
+        ]
     )
 
-    output = BytesIO()
+    for activity in ACTIVITIES:
+        seconds = totals.get(activity, 0)
 
-    with pd.ExcelWriter(
-        output,
-        engine="openpyxl",
-    ) as writer:
-        detail_dataframe.to_excel(
-            writer,
-            index=False,
-            sheet_name="Detail",
+        percentage = (
+            seconds / total_seconds
+            if total_seconds > 0
+            else 0
         )
 
-        summary_dataframe.to_excel(
-            writer,
-            index=False,
-            sheet_name="Souhrn",
+        summary_sheet.append(
+            [
+                activity,
+                format_duration(seconds),
+                round(seconds / 60, 2),
+                percentage,
+            ]
         )
 
-        detail_sheet = writer.sheets["Detail"]
-        summary_sheet = writer.sheets["Souhrn"]
+    # Případné další neznámé činnosti
+    for activity, seconds in totals.items():
+        if activity in ACTIVITIES:
+            continue
 
-        header_fill = PatternFill(
-            fill_type="solid",
-            fgColor="00529B",
+        percentage = (
+            seconds / total_seconds
+            if total_seconds > 0
+            else 0
         )
 
-        header_font = Font(
-            color="FFFFFF",
+        summary_sheet.append(
+            [
+                activity,
+                format_duration(seconds),
+                round(seconds / 60, 2),
+                percentage,
+            ]
+        )
+
+    style_header_row(summary_sheet)
+
+    summary_sheet.freeze_panes = "A2"
+    summary_sheet.auto_filter.ref = (
+        summary_sheet.dimensions
+    )
+
+    set_column_widths(
+        summary_sheet,
+        {
+            1: 20,
+            2: 16,
+            3: 16,
+            4: 14,
+        },
+    )
+
+    last_summary_row = (
+        summary_sheet.max_row
+    )
+
+    for row_number in range(
+        2,
+        last_summary_row + 1,
+    ):
+        summary_sheet[
+            f"D{row_number}"
+        ].number_format = "0.0%"
+
+    # Celkem
+    total_row = last_summary_row + 2
+
+    summary_sheet[
+        f"A{total_row}"
+    ] = "CELKEM"
+
+    summary_sheet[
+        f"B{total_row}"
+    ] = format_duration(total_seconds)
+
+    summary_sheet[
+        f"C{total_row}"
+    ] = round(total_seconds / 60, 2)
+
+    for cell in summary_sheet[total_row]:
+        cell.font = Font(
             bold=True,
+            color=YUSEN_BLUE,
         )
 
-        for worksheet in [
-            detail_sheet,
-            summary_sheet,
-        ]:
-            for cell in worksheet[1]:
-                cell.fill = header_fill
-                cell.font = header_font
-                cell.alignment = Alignment(
-                    horizontal="center",
-                    vertical="center",
-                )
-
-            worksheet.freeze_panes = "A2"
-            worksheet.auto_filter.ref = (
-                worksheet.dimensions
-            )
-
-        detail_widths = {
-            "A": 13,
-            "B": 11,
-            "C": 28,
-            "D": 17,
-            "E": 12,
-            "F": 12,
-            "G": 14,
-            "H": 20,
-            "I": 14,
-        }
-
-        for column, width in detail_widths.items():
-            detail_sheet.column_dimensions[
-                column
-            ].width = width
-
-        summary_sheet.column_dimensions["A"].width = 18
-        summary_sheet.column_dimensions["B"].width = 16
-        summary_sheet.column_dimensions["C"].width = 14
-        summary_sheet.column_dimensions["D"].width = 14
-
-        for row_number in range(
-            2,
-            len(summary_rows) + 2,
-        ):
-            summary_sheet[
-                f"D{row_number}"
-            ].number_format = "0.0%"
-
-        chart = PieChart()
-
-        chart.title = (
-            "Rozdělení času podle činností"
+        cell.fill = PatternFill(
+            fill_type="solid",
+            fgColor=LIGHT_BLUE,
         )
 
-        labels = Reference(
-            summary_sheet,
-            min_col=1,
-            min_row=2,
-            max_row=len(summary_rows) + 1,
-        )
+    # --------------------------------------------------------
+    # KOLÁČOVÝ GRAF
+    # --------------------------------------------------------
 
-        data = Reference(
-            summary_sheet,
-            min_col=3,
-            min_row=1,
-            max_row=len(summary_rows) + 1,
-        )
+    chart = PieChart()
 
-        chart.add_data(
-            data,
-            titles_from_data=True,
-        )
+    chart.title = (
+        "Rozdělení času podle činností"
+    )
 
-        chart.set_categories(labels)
+    chart.height = 11
+    chart.width = 16
 
-        chart.height = 10
-        chart.width = 15
+    labels = Reference(
+        summary_sheet,
+        min_col=1,
+        min_row=2,
+        max_row=last_summary_row,
+    )
 
-        chart.dataLabels = DataLabelList()
-        chart.dataLabels.showPercent = True
-        chart.dataLabels.showLeaderLines = True
+    values = Reference(
+        summary_sheet,
+        min_col=3,
+        min_row=1,
+        max_row=last_summary_row,
+    )
 
-        summary_sheet.add_chart(
-            chart,
-            "F2",
-        )
+    chart.add_data(
+        values,
+        titles_from_data=True,
+    )
 
-    current_local = datetime.now(TIMEZONE)
+    chart.set_categories(labels)
+
+    chart.dataLabels = DataLabelList()
+    chart.dataLabels.showPercent = True
+    chart.dataLabels.showLeaderLines = True
+    chart.dataLabels.showLegendKey = False
+
+    summary_sheet.add_chart(
+        chart,
+        "F2",
+    )
+
+    # Zvýraznění názvu souhrnu
+    summary_sheet["F15"] = (
+        "Procenta jsou vypočítána "
+        "z celkového času všech činností."
+    )
+
+    summary_sheet["F15"].font = Font(
+        italic=True,
+        color=YUSEN_BLUE,
+    )
+
+    # --------------------------------------------------------
+    # ULOŽENÍ DO PAMĚTI
+    # --------------------------------------------------------
+
+    output = BytesIO()
+    workbook.save(output)
+
+    current_local = datetime.now(
+        APP_TIMEZONE
+    )
 
     filename = (
         "prehled_cinnosti_"
-        + current_local.strftime("%Y-%m-%d")
+        + current_local.strftime(
+            "%Y-%m-%d_%H-%M"
+        )
         + ".xlsx"
     )
 
     return output.getvalue(), filename
 
 
+# ============================================================
+# TEXT SOUHRNU DO E-MAILU
+# ============================================================
+
 def create_email_summary(
     records: list[dict],
+    period_end_utc: datetime,
 ) -> str:
-    summary_rows = calculate_summary(records)
+    totals = calculate_activity_totals(
+        records,
+        period_end_utc,
+    )
+
+    total_seconds = sum(totals.values())
 
     lines = [
         "Souhrn podle činností:",
         "",
     ]
 
-    for row in summary_rows:
-        percentage = row["Podíl"] * 100
+    for activity in ACTIVITIES:
+        seconds = totals.get(activity, 0)
+
+        percentage = (
+            seconds / total_seconds * 100
+            if total_seconds > 0
+            else 0
+        )
 
         lines.append(
-            f"{row['Činnost']}: "
+            f"{activity}: "
             f"{percentage:.1f} % "
-            f"({row['Trvání']})"
+            f"({format_duration(seconds)})"
         )
+
+    lines.extend(
+        [
+            "",
+            (
+                "Celkový zaznamenaný čas: "
+                f"{format_duration(total_seconds)}"
+            ),
+        ]
+    )
 
     return "\n".join(lines)
 
+
+# ============================================================
+# ODESLÁNÍ E-MAILU
+# ============================================================
 
 def send_email(
     excel_data: bytes,
     filename: str,
     records: list[dict],
+    period_start_utc: datetime,
+    period_end_utc: datetime,
 ) -> None:
-    now_local = datetime.now(TIMEZONE)
-    period_start = now_local - timedelta(hours=24)
+    period_start_local = (
+        period_start_utc.astimezone(
+            APP_TIMEZONE
+        )
+    )
+
+    period_end_local = (
+        period_end_utc.astimezone(
+            APP_TIMEZONE
+        )
+    )
+
+    summary_text = create_email_summary(
+        records,
+        period_end_utc,
+    )
 
     message = EmailMessage()
 
@@ -413,10 +631,10 @@ def send_email(
     message["To"] = REPORT_RECIPIENT
     message["Subject"] = (
         "Denní přehled činností UWH – "
-        + now_local.strftime("%d.%m.%Y")
+        + period_end_local.strftime(
+            "%d.%m.%Y"
+        )
     )
-
-    summary = create_email_summary(records)
 
     message.set_content(
         f"""Dobrý den,
@@ -424,17 +642,17 @@ def send_email(
 v příloze zasílám automatický přehled činností za posledních 24 hodin.
 
 Období:
-{period_start.strftime("%d.%m.%Y %H:%M")}
+{period_start_local.strftime("%d.%m.%Y %H:%M")}
 až
-{now_local.strftime("%d.%m.%Y %H:%M")}
+{period_end_local.strftime("%d.%m.%Y %H:%M")}
 
 Počet záznamů: {len(records)}
 
-{summary}
+{summary_text}
 
-Excel obsahuje:
-- list Detail se všemi záznamy,
-- list Souhrn s procenty a grafem.
+Excel obsahuje dvě záložky:
+- Detail – všechny jednotlivé záznamy,
+- Souhrn – procentuální přehled a koláčový graf.
 
 Tento e-mail byl vytvořen automaticky.
 """
@@ -463,22 +681,45 @@ Tento e-mail byl vytvořen automaticky.
         smtp.send_message(message)
 
 
+# ============================================================
+# SPUŠTĚNÍ
+# ============================================================
+
 def main() -> None:
-    records = load_records()
+    print(
+        "Spouštím nový report s listy "
+        "Detail a Souhrn."
+    )
+
+    (
+        records,
+        period_start_utc,
+        period_end_utc,
+    ) = load_records()
 
     excel_data, filename = create_excel(
-        records
+        records,
+        period_end_utc,
     )
 
     send_email(
         excel_data=excel_data,
         filename=filename,
         records=records,
+        period_start_utc=period_start_utc,
+        period_end_utc=period_end_utc,
     )
 
     print(
-        f"Report byl úspěšně odeslán na "
-        f"{REPORT_RECIPIENT}. "
+        f"Report byl odeslán na "
+        f"{REPORT_RECIPIENT}."
+    )
+
+    print(
+        f"Název přílohy: {filename}"
+    )
+
+    print(
         f"Počet záznamů: {len(records)}"
     )
 
