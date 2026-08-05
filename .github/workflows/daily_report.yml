@@ -2,7 +2,8 @@ name: Denní report činností
 
 on:
   schedule:
-    - cron: "0 10 * * *"
+    - cron: "0 13 * * *"
+      timezone: "Europe/Prague"
 
   workflow_dispatch:
 
