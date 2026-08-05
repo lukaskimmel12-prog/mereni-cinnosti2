@@ -8,7 +8,13 @@ import pandas as pd
 import streamlit as st
 from supabase import Client, create_client
 
+
 APP_TZ = ZoneInfo("Europe/Prague")
+
+YUSEN_ORANGE = "#F58220"
+YUSEN_BLUE = "#00529B"
+YUSEN_DARK_BLUE = "#003B70"
+BACKGROUND = "#F4F7FA"
 
 PRACOVNICI = {
     "11122": "Běloubek František",
@@ -54,33 +60,161 @@ st.set_page_config(
 )
 
 st.markdown(
-    """
+    f"""
     <style>
-        .block-container {max-width: 720px; padding-top: 1rem;}
-        div.stButton > button {
-            min-height: 4.2rem;
+        #MainMenu, footer, header {{
+            visibility: hidden;
+        }}
+
+        .stApp {{
+            background: {BACKGROUND};
+        }}
+
+        .block-container {{
+            max-width: 720px;
+            padding-top: 1rem;
+            padding-bottom: 2rem;
+        }}
+
+        .app-header {{
+            background: linear-gradient(135deg, {YUSEN_DARK_BLUE}, {YUSEN_BLUE});
+            border-bottom: 8px solid {YUSEN_ORANGE};
+            padding: 20px 18px;
+            border-radius: 18px;
+            margin-bottom: 20px;
+            text-align: center;
+            box-shadow: 0 5px 16px rgba(0, 59, 112, 0.20);
+        }}
+
+        .app-header h1 {{
+            color: white;
+            margin: 0;
+            font-size: 2rem;
+            font-weight: 900;
+        }}
+
+        .app-header p {{
+            color: white;
+            margin: 6px 0 0;
+            font-size: 1rem;
+        }}
+
+        .user-box {{
+            background: white;
+            border-left: 8px solid {YUSEN_ORANGE};
+            border-radius: 14px;
+            padding: 15px 17px;
+            margin-bottom: 16px;
+            box-shadow: 0 3px 12px rgba(0, 82, 155, 0.12);
+        }}
+
+        .user-name {{
+            color: {YUSEN_DARK_BLUE};
             font-size: 1.35rem;
-            font-weight: 800;
-            border-radius: 14px;
-        }
-        div[data-testid="stSelectbox"] label,
-        div[data-testid="stTextInput"] label {
-            font-size: 1.05rem;
-            font-weight: 700;
-        }
-        .status-box {
+            font-weight: 900;
+        }}
+
+        .user-id {{
+            color: #555;
+            font-size: 0.95rem;
+            margin-top: 3px;
+        }}
+
+        .status-running,
+        .status-idle {{
+            background: white;
+            border-radius: 16px;
             padding: 18px;
+            margin: 12px 0 18px;
+            text-align: center;
+        }}
+
+        .status-running {{
+            border: 3px solid {YUSEN_ORANGE};
+        }}
+
+        .status-idle {{
+            border: 3px solid {YUSEN_BLUE};
+        }}
+
+        .status-label {{
+            color: #666;
+            font-size: 0.95rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }}
+
+        .status-activity {{
+            color: {YUSEN_DARK_BLUE};
+            font-size: 2rem;
+            font-weight: 900;
+            margin-top: 4px;
+        }}
+
+        .status-time {{
+            color: {YUSEN_ORANGE};
+            font-size: 1.6rem;
+            font-weight: 900;
+            margin-top: 7px;
+        }}
+
+        .section-title {{
+            color: {YUSEN_DARK_BLUE};
+            font-size: 1.25rem;
+            font-weight: 900;
+            margin: 15px 0 8px;
+        }}
+
+        div[data-testid="stSelectbox"] label {{
+            color: {YUSEN_DARK_BLUE};
+            font-size: 1.08rem;
+            font-weight: 900;
+        }}
+
+        div.stButton > button {{
+            width: 100%;
+            min-height: 62px;
             border-radius: 14px;
-            border: 2px solid #f0a500;
-            background: rgba(240,165,0,.08);
-            margin: 12px 0 18px 0;
-        }
-        .status-title {font-size: 1.5rem; font-weight: 800;}
-        .status-line {font-size: 1.1rem; margin-top: 5px;}
+            font-size: 1.18rem;
+            font-weight: 900;
+            border: none;
+        }}
+
+        div.stButton > button[kind="primary"] {{
+            background: {YUSEN_ORANGE};
+            color: white;
+        }}
+
+        div.stButton > button[kind="secondary"] {{
+            background: {YUSEN_BLUE};
+            color: white;
+        }}
+
+        div[data-testid="stDownloadButton"] > button {{
+            min-height: 58px;
+            border-radius: 14px;
+            background: {YUSEN_BLUE};
+            color: white;
+            font-size: 1.1rem;
+            font-weight: 900;
+        }}
+
+        .small-note {{
+            color: #5E6872;
+            text-align: center;
+            font-size: 0.9rem;
+            margin-top: 8px;
+        }}
     </style>
     """,
     unsafe_allow_html=True,
 )
+
+if "logged_employee_id" not in st.session_state:
+    st.session_state.logged_employee_id = None
+
+if "selected_activity" not in st.session_state:
+    st.session_state.selected_activity = None
 
 
 @st.cache_resource
@@ -90,18 +224,9 @@ def get_supabase() -> Client:
             st.secrets["supabase"]["url"],
             st.secrets["supabase"]["key"],
         )
-    except Exception as exc:
+    except Exception:
         st.error("Chybí nebo je chybně nastavené připojení k Supabase.")
-        st.code(
-            '[supabase]\nurl = "https://TVUJ-PROJEKT.supabase.co"\n'
-            'key = "TVUJ_ANON_KEY"'
-        )
         st.stop()
-        raise exc
-
-
-def utc_now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
 
 
 def parse_dt(value: str) -> datetime:
@@ -133,19 +258,22 @@ def get_active_record(db: Client, employee_id: str) -> dict | None:
 
 
 def start_activity(
-    db: Client, employee_id: str, employee_name: str, activity: str
+    db: Client,
+    employee_id: str,
+    employee_name: str,
+    activity: str,
 ) -> None:
     db.table("activity_log").insert(
         {
             "employee_id": employee_id,
             "employee_name": employee_name,
             "activity": activity,
-            "start_time": utc_now_iso(),
+            "start_time": datetime.now(timezone.utc).isoformat(),
         }
     ).execute()
 
 
-def end_activity(db: Client, record: dict) -> None:
+def end_activity(db: Client, record: dict) -> int:
     end_time = datetime.now(timezone.utc)
     start_time = parse_dt(record["start_time"])
     duration_seconds = max(0, int((end_time - start_time).total_seconds()))
@@ -163,6 +291,8 @@ def end_activity(db: Client, record: dict) -> None:
         .execute()
     )
 
+    return duration_seconds
+
 
 def load_last_24_hours(db: Client) -> list[dict]:
     since = datetime.now(timezone.utc) - timedelta(hours=24)
@@ -177,19 +307,8 @@ def load_last_24_hours(db: Client) -> list[dict]:
 
 
 def make_excel(rows: list[dict]) -> bytes:
-    columns = [
-        "Datum",
-        "ID",
-        "Jméno",
-        "Činnost",
-        "Start",
-        "Konec",
-        "Trvání",
-        "Trvání v minutách",
-        "Stav",
-    ]
-
     output_rows = []
+
     for row in rows:
         start_local = local_dt(row["start_time"])
         end_value = row.get("end_time")
@@ -197,12 +316,13 @@ def make_excel(rows: list[dict]) -> bytes:
 
         if row.get("duration_seconds") is not None:
             duration_seconds = int(row["duration_seconds"])
-        elif not end_value:
-            duration_seconds = int(
-                (datetime.now(timezone.utc) - parse_dt(row["start_time"])).total_seconds()
-            )
         else:
-            duration_seconds = 0
+            duration_seconds = int(
+                (
+                    datetime.now(timezone.utc)
+                    - parse_dt(row["start_time"])
+                ).total_seconds()
+            )
 
         output_rows.append(
             {
@@ -218,7 +338,7 @@ def make_excel(rows: list[dict]) -> bytes:
             }
         )
 
-    df = pd.DataFrame(output_rows, columns=columns)
+    df = pd.DataFrame(output_rows)
 
     buffer = BytesIO()
     with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
@@ -227,168 +347,190 @@ def make_excel(rows: list[dict]) -> bytes:
         ws.freeze_panes = "A2"
         ws.auto_filter.ref = ws.dimensions
 
-        widths = {
-            "A": 13, "B": 11, "C": 27, "D": 16, "E": 12,
-            "F": 12, "G": 13, "H": 20, "I": 13
-        }
-        for column, width in widths.items():
-            ws.column_dimensions[column].width = width
-
     return buffer.getvalue()
 
 
+st.markdown(
+    """
+    <div class="app-header">
+        <h1>MĚŘENÍ ČINNOSTÍ</h1>
+        <p>UWH • pracovní evidence</p>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
 db = get_supabase()
 
-st.title("⏱️ Měření činností")
-st.caption("Vyber pracovníka a činnost. Potom stiskni START nebo END.")
 
-employee_options = {
-    f"{name} – {employee_id}": employee_id
-    for employee_id, name in PRACOVNICI.items()
-}
+if not st.session_state.logged_employee_id:
+    st.markdown(
+        '<div class="section-title">Přihlášení pracovníka</div>',
+        unsafe_allow_html=True,
+    )
 
-selected_label = st.selectbox(
-    "Pracovník",
-    options=list(employee_options.keys()),
-    index=None,
-    placeholder="Vyber jméno nebo ID",
+    options = {
+        f"{name} – ID {employee_id}": employee_id
+        for employee_id, name in PRACOVNICI.items()
+    }
+
+    selected = st.selectbox(
+        "Vyber pracovníka",
+        options=list(options.keys()),
+        index=None,
+        placeholder="Klikni a vyber své jméno",
+    )
+
+    if st.button(
+        "PŘIHLÁSIT",
+        type="primary",
+        use_container_width=True,
+        disabled=not bool(selected),
+    ):
+        st.session_state.logged_employee_id = options[selected]
+        st.session_state.selected_activity = None
+        st.rerun()
+
+    st.stop()
+
+
+employee_id = st.session_state.logged_employee_id
+employee_name = PRACOVNICI[employee_id]
+
+st.markdown(
+    f"""
+    <div class="user-box">
+        <div class="user-name">👤 {employee_name}</div>
+        <div class="user-id">Osobní ID: {employee_id}</div>
+    </div>
+    """,
+    unsafe_allow_html=True,
 )
-selected_activity = st.selectbox(
-    "Činnost",
-    options=CINNOSTI,
-    index=None,
-    placeholder="Vyber činnost",
-)
 
-if not selected_label:
-    st.info("Nejdříve vyber pracovníka.")
-else:
-    employee_id = employee_options[selected_label]
-    employee_name = PRACOVNICI[employee_id]
+active = get_active_record(db, employee_id)
 
-    try:
-        active = get_active_record(db, employee_id)
-    except Exception as exc:
-        st.error(f"Nepodařilo se načíst data: {exc}")
-        st.stop()
+if active:
+    started_local = local_dt(active["start_time"])
+    elapsed = int(
+        (
+            datetime.now(timezone.utc)
+            - parse_dt(active["start_time"])
+        ).total_seconds()
+    )
 
-    if active:
-        started = local_dt(active["start_time"])
-        elapsed = int(
-            (datetime.now(timezone.utc) - parse_dt(active["start_time"])).total_seconds()
-        )
-
-        st.markdown(
-            f"""
-            <div class="status-box">
-                <div class="status-title">Probíhá: {active["activity"]}</div>
-                <div class="status-line"><b>{active["employee_name"]}</b> · ID {active["employee_id"]}</div>
-                <div class="status-line">Začátek: {started.strftime("%d.%m.%Y %H:%M:%S")}</div>
-                <div class="status-line">Aktuální doba: <b>{format_duration(elapsed)}</b></div>
+    st.markdown(
+        f"""
+        <div class="status-running">
+            <div class="status-label">Aktuálně probíhá</div>
+            <div class="status-activity">{active["activity"].upper()}</div>
+            <div class="status-time">{format_duration(elapsed)}</div>
+            <div class="small-note">
+                Začátek: {started_local.strftime("%d.%m.%Y %H:%M:%S")}
             </div>
-            """,
-            unsafe_allow_html=True,
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    if st.button(
+        "🔴 END – UKONČIT ČINNOST",
+        type="primary",
+        use_container_width=True,
+    ):
+        duration = end_activity(db, active)
+        st.success(
+            f"Činnost {active['activity']} ukončena. "
+            f"Trvání: {format_duration(duration)}"
+        )
+        st.rerun()
+
+else:
+    st.markdown(
+        """
+        <div class="status-idle">
+            <div class="status-label">Aktuální stav</div>
+            <div class="status-activity">ŽÁDNÁ ČINNOST</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    st.markdown(
+        '<div class="section-title">1. Vyber činnost</div>',
+        unsafe_allow_html=True,
+    )
+
+    col1, col2 = st.columns(2)
+
+    for index, activity in enumerate(CINNOSTI):
+        with col1 if index % 2 == 0 else col2:
+            selected_now = st.session_state.selected_activity == activity
+
+            if st.button(
+                f"✅ {activity.upper()}" if selected_now else activity.upper(),
+                key=f"activity_{activity}",
+                type="primary" if selected_now else "secondary",
+                use_container_width=True,
+            ):
+                st.session_state.selected_activity = activity
+                st.rerun()
+
+    if st.session_state.selected_activity:
+        st.success(
+            f"Vybraná činnost: **{st.session_state.selected_activity}**"
         )
 
-        if st.button("🔴 END – ukončit činnost", use_container_width=True, type="primary"):
-            try:
-                end_activity(db, active)
-                st.success(
-                    f"Činnost {active['activity']} byla ukončena. "
-                    f"Trvání: {format_duration(elapsed)}"
-                )
-                st.rerun()
-            except Exception as exc:
-                st.error(f"Činnost se nepodařilo ukončit: {exc}")
-    else:
-        if selected_activity:
-            st.success(
-                f"Připraveno: **{employee_name}** · **{selected_activity}**"
-            )
+    st.markdown(
+        '<div class="section-title">2. Zahaj měření</div>',
+        unsafe_allow_html=True,
+    )
 
-        if st.button(
-            "🟢 START – zahájit činnost",
-            use_container_width=True,
-            type="primary",
-            disabled=not bool(selected_activity),
-        ):
-            try:
-                start_activity(db, employee_id, employee_name, selected_activity)
-                st.success(f"Spuštěno: {selected_activity}")
-                st.rerun()
-            except Exception as exc:
-                if "one_active_activity_per_employee" in str(exc).lower() or "duplicate" in str(exc).lower():
-                    st.warning("Tento pracovník už má rozpracovanou činnost.")
-                else:
-                    st.error(f"Činnost se nepodařilo spustit: {exc}")
+    if st.button(
+        "🟢 START",
+        type="primary",
+        use_container_width=True,
+        disabled=not bool(st.session_state.selected_activity),
+    ):
+        start_activity(
+            db,
+            employee_id,
+            employee_name,
+            st.session_state.selected_activity,
+        )
+        st.session_state.selected_activity = None
+        st.rerun()
+
 
 st.divider()
+
+if st.button(
+    "🚪 ODHLÁSIT PRACOVNÍKA",
+    type="secondary",
+    use_container_width=True,
+    disabled=bool(active),
+):
+    st.session_state.logged_employee_id = None
+    st.session_state.selected_activity = None
+    st.rerun()
+
+if active:
+    st.caption("Nejdříve ukonči aktuální činnost tlačítkem END.")
+
+
 with st.expander("📥 Export do Excelu – posledních 24 hodin"):
-    try:
-        export_rows = load_last_24_hours(db)
-        st.write(f"Počet záznamů: **{len(export_rows)}**")
+    rows = load_last_24_hours(db)
+    excel_data = make_excel(rows)
 
-        excel_data = make_excel(export_rows)
-        filename = (
-            "cinnosti_poslednich_24h_"
-            + datetime.now(APP_TZ).strftime("%Y-%m-%d_%H-%M")
-            + ".xlsx"
-        )
+    filename = (
+        "cinnosti_poslednich_24h_"
+        + datetime.now(APP_TZ).strftime("%Y-%m-%d_%H-%M")
+        + ".xlsx"
+    )
 
-        st.download_button(
-            "Stáhnout Excel",
-            data=excel_data,
-            file_name=filename,
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True,
-        )
-    except Exception as exc:
-        st.error(f"Export se nepodařilo připravit: {exc}")
-
-with st.expander("Poslední záznamy"):
-    try:
-        recent = (
-            db.table("activity_log")
-            .select("*")
-            .order("start_time", desc=True)
-            .limit(20)
-            .execute()
-            .data
-            or []
-        )
-
-        display_rows = []
-        for row in recent:
-            start_local = local_dt(row["start_time"])
-            if row.get("end_time"):
-                end_local = local_dt(row["end_time"])
-                duration = format_duration(row.get("duration_seconds"))
-                status = "Dokončeno"
-                end_text = end_local.strftime("%H:%M:%S")
-            else:
-                duration = format_duration(
-                    (datetime.now(timezone.utc) - parse_dt(row["start_time"])).total_seconds()
-                )
-                status = "Probíhá"
-                end_text = ""
-
-            display_rows.append(
-                {
-                    "Datum": start_local.strftime("%d.%m.%Y"),
-                    "ID": row["employee_id"],
-                    "Jméno": row["employee_name"],
-                    "Činnost": row["activity"],
-                    "Start": start_local.strftime("%H:%M:%S"),
-                    "Konec": end_text,
-                    "Trvání": duration,
-                    "Stav": status,
-                }
-            )
-
-        st.dataframe(
-            pd.DataFrame(display_rows),
-            use_container_width=True,
-            hide_index=True,
-        )
-    except Exception as exc:
-        st.error(f"Historii se nepodařilo načíst: {exc}")
+    st.download_button(
+        "STÁHNOUT EXCEL",
+        data=excel_data,
+        file_name=filename,
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True,
+    )
