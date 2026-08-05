@@ -28,7 +28,7 @@ WHITE = "#FFFFFF"
 DARK_TEXT = "#172A3A"
 GREY_TEXT = "#526574"
 GREEN = "#14804A"
-RED = "#C62828"
+
 
 PRACOVNICI = {
     "11122": "Běloubek František",
@@ -63,6 +63,7 @@ PRACOVNICI = {
     "11486": "Liehmová Hana",
 }
 
+
 CINNOSTI = [
     "Aperam",
     "Personna",
@@ -89,9 +90,12 @@ st.set_page_config(
 # ============================================================
 
 def render_html(html: str) -> None:
-    st.markdown(
-        dedent(html).strip(),
-        unsafe_allow_html=True,
+    """
+    Používáme st.html místo st.markdown.
+    Díky tomu se HTML nebude zobrazovat jako černý blok kódu.
+    """
+    st.html(
+        dedent(html).strip()
     )
 
 
@@ -214,6 +218,7 @@ render_html(
                 0 8px 24px rgba(0, 59, 112, 0.10);
             border: 1px solid rgba(0, 82, 155, 0.09);
             margin-top: 8px;
+            margin-bottom: 10px;
         }}
 
         .login-icon {{
@@ -238,7 +243,6 @@ render_html(
         .login-description {{
             color: {GREY_TEXT};
             font-size: 0.93rem;
-            margin-bottom: 12px;
         }}
 
         /* PRACOVNÍK */
@@ -293,13 +297,13 @@ render_html(
             color: {YUSEN_DARK_BLUE};
             font-size: 1.25rem;
             font-weight: 950;
-            margin-top: 1px;
+            margin-top: 2px;
         }}
 
         .employee-id {{
             color: {GREY_TEXT};
             font-size: 0.88rem;
-            margin-top: 2px;
+            margin-top: 3px;
         }}
 
         .online-chip {{
@@ -307,7 +311,7 @@ render_html(
             color: {GREEN};
             background: #E5F6ED;
             border-radius: 30px;
-            padding: 6px 10px;
+            padding: 7px 11px;
             font-size: 0.74rem;
             font-weight: 900;
         }}
@@ -378,7 +382,9 @@ render_html(
             align-items: center;
             justify-content: center;
             margin: 0 auto 12px;
+            color: {YUSEN_BLUE};
             font-size: 2rem;
+            font-weight: 900;
         }}
 
         /* NADPISY */
@@ -466,7 +472,6 @@ render_html(
 
         .history-running {{
             color: {GREEN};
-            font-weight: 850;
         }}
 
         /* SELECTBOX */
@@ -541,15 +546,6 @@ render_html(
             border: none;
             box-shadow:
                 0 5px 14px rgba(0, 59, 112, 0.13);
-            transition:
-                transform 0.12s ease,
-                box-shadow 0.12s ease;
-        }}
-
-        div.stButton > button:hover {{
-            transform: translateY(-1px);
-            box-shadow:
-                0 7px 17px rgba(0, 59, 112, 0.18);
         }}
 
         div.stButton > button[kind="primary"] {{
@@ -581,7 +577,6 @@ render_html(
             background: #A8B6C1 !important;
             color: white !important;
             opacity: 0.7;
-            transform: none;
         }}
 
         /* DOWNLOAD */
@@ -600,8 +595,6 @@ render_html(
             color: white !important;
             font-size: 1.02rem;
             font-weight: 950;
-            box-shadow:
-                0 5px 14px rgba(0, 59, 112, 0.17);
         }}
 
         div[data-testid="stDownloadButton"] > button * {{
@@ -702,11 +695,15 @@ render_html(
 # SESSION STATE
 # ============================================================
 
-employee_from_url = st.query_params.get("employee")
+employee_from_url = st.query_params.get(
+    "employee"
+)
 
 if "logged_employee_id" not in st.session_state:
     if employee_from_url in PRACOVNICI:
-        st.session_state.logged_employee_id = employee_from_url
+        st.session_state.logged_employee_id = (
+            employee_from_url
+        )
     else:
         st.session_state.logged_employee_id = None
 
@@ -727,7 +724,8 @@ def get_supabase() -> Client:
         )
     except Exception:
         st.error(
-            "Chybí nebo je chybně nastavené připojení k Supabase."
+            "Chybí nebo je chybně nastavené "
+            "připojení k Supabase."
         )
         st.stop()
 
@@ -736,7 +734,7 @@ db = get_supabase()
 
 
 # ============================================================
-# ČAS
+# ČASOVÉ FUNKCE
 # ============================================================
 
 def parse_dt(value: str) -> datetime:
@@ -746,18 +744,34 @@ def parse_dt(value: str) -> datetime:
 
 
 def local_dt(value: str) -> datetime:
-    return parse_dt(value).astimezone(APP_TZ)
+    return parse_dt(value).astimezone(
+        APP_TZ
+    )
 
 
 def format_duration(
     seconds: int | float | None,
 ) -> str:
-    total = max(0, int(seconds or 0))
+    total = max(
+        0,
+        int(seconds or 0),
+    )
 
-    hours, remainder = divmod(total, 3600)
-    minutes, seconds = divmod(remainder, 60)
+    hours, remainder = divmod(
+        total,
+        3600,
+    )
 
-    return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+    minutes, seconds = divmod(
+        remainder,
+        60,
+    )
+
+    return (
+        f"{hours:02d}:"
+        f"{minutes:02d}:"
+        f"{seconds:02d}"
+    )
 
 
 # ============================================================
@@ -771,14 +785,26 @@ def get_active_record(
     response = (
         database.table("activity_log")
         .select("*")
-        .eq("employee_id", employee_id)
-        .is_("end_time", "null")
-        .order("start_time", desc=True)
+        .eq(
+            "employee_id",
+            employee_id,
+        )
+        .is_(
+            "end_time",
+            "null",
+        )
+        .order(
+            "start_time",
+            desc=True,
+        )
         .limit(1)
         .execute()
     )
 
-    return response.data[0] if response.data else None
+    if response.data:
+        return response.data[0]
+
+    return None
 
 
 def start_activity(
@@ -787,7 +813,9 @@ def start_activity(
     employee_name: str,
     activity: str,
 ) -> None:
-    database.table("activity_log").insert(
+    database.table(
+        "activity_log"
+    ).insert(
         {
             "employee_id": employee_id,
             "employee_name": employee_name,
@@ -803,12 +831,21 @@ def end_activity(
     database: Client,
     record: dict,
 ) -> int:
-    end_time = datetime.now(timezone.utc)
-    start_time = parse_dt(record["start_time"])
+    end_time = datetime.now(
+        timezone.utc
+    )
+
+    start_time = parse_dt(
+        record["start_time"]
+    )
 
     duration_seconds = max(
         0,
-        int((end_time - start_time).total_seconds()),
+        int(
+            (
+                end_time - start_time
+            ).total_seconds()
+        ),
     )
 
     (
@@ -819,8 +856,14 @@ def end_activity(
                 "duration_seconds": duration_seconds,
             }
         )
-        .eq("id", record["id"])
-        .is_("end_time", "null")
+        .eq(
+            "id",
+            record["id"],
+        )
+        .is_(
+            "end_time",
+            "null",
+        )
         .execute()
     )
 
@@ -838,8 +881,14 @@ def load_last_24_hours(
     response = (
         database.table("activity_log")
         .select("*")
-        .gte("start_time", since.isoformat())
-        .order("start_time", desc=False)
+        .gte(
+            "start_time",
+            since.isoformat(),
+        )
+        .order(
+            "start_time",
+            desc=False,
+        )
         .execute()
     )
 
@@ -854,8 +903,14 @@ def load_employee_history(
     response = (
         database.table("activity_log")
         .select("*")
-        .eq("employee_id", employee_id)
-        .order("start_time", desc=True)
+        .eq(
+            "employee_id",
+            employee_id,
+        )
+        .order(
+            "start_time",
+            desc=True,
+        )
         .limit(limit)
         .execute()
     )
@@ -864,21 +919,26 @@ def load_employee_history(
 
 
 # ============================================================
-# EXCEL
+# EXCEL EXPORT
 # ============================================================
 
 def make_excel(
     rows: list[dict],
 ) -> bytes:
     output_rows = []
-    now_utc = datetime.now(timezone.utc)
+
+    now_utc = datetime.now(
+        timezone.utc
+    )
 
     for row in rows:
         start_local = local_dt(
             row["start_time"]
         )
 
-        end_value = row.get("end_time")
+        end_value = row.get(
+            "end_time"
+        )
 
         end_local = (
             local_dt(end_value)
@@ -886,7 +946,9 @@ def make_excel(
             else None
         )
 
-        if row.get("duration_seconds") is not None:
+        if row.get(
+            "duration_seconds"
+        ) is not None:
             duration_seconds = int(
                 row["duration_seconds"]
             )
@@ -894,7 +956,9 @@ def make_excel(
             duration_seconds = int(
                 (
                     now_utc
-                    - parse_dt(row["start_time"])
+                    - parse_dt(
+                        row["start_time"]
+                    )
                 ).total_seconds()
             )
 
@@ -910,7 +974,9 @@ def make_excel(
                     "%H:%M:%S"
                 ),
                 "Konec": (
-                    end_local.strftime("%H:%M:%S")
+                    end_local.strftime(
+                        "%H:%M:%S"
+                    )
                     if end_local
                     else ""
                 ),
@@ -963,6 +1029,7 @@ def make_excel(
         ]
 
         worksheet.freeze_panes = "A2"
+
         worksheet.auto_filter.ref = (
             worksheet.dimensions
         )
@@ -1009,7 +1076,9 @@ def make_excel(
 # HLAVIČKA
 # ============================================================
 
-today_text = datetime.now(APP_TZ).strftime(
+today_text = datetime.now(
+    APP_TZ
+).strftime(
     "%A %d.%m.%Y"
 )
 
@@ -1023,11 +1092,14 @@ day_translation = {
     "Sunday": "Neděle",
 }
 
-for english_day, czech_day in day_translation.items():
+for english_day, czech_day in (
+    day_translation.items()
+):
     today_text = today_text.replace(
         english_day,
         czech_day,
     )
+
 
 render_html(
     f"""
@@ -1055,13 +1127,15 @@ if not st.session_state.logged_employee_id:
     render_html(
         """
         <div class="login-card">
-            <div class="login-icon">👤</div>
+            <div class="login-icon">
+                👤
+            </div>
             <div class="login-title">
                 Přihlášení pracovníka
             </div>
             <div class="login-description">
-                Vyber své jméno ze seznamu a pokračuj
-                tlačítkem Přihlásit.
+                Vyber své jméno ze seznamu
+                a pokračuj tlačítkem Přihlásit.
             </div>
         </div>
         """
@@ -1069,7 +1143,8 @@ if not st.session_state.logged_employee_id:
 
     employee_options = {
         f"{name} – ID {employee_id}": employee_id
-        for employee_id, name in PRACOVNICI.items()
+        for employee_id, name
+        in PRACOVNICI.items()
     }
 
     selected_employee = st.selectbox(
@@ -1085,7 +1160,9 @@ if not st.session_state.logged_employee_id:
         "PŘIHLÁSIT SE",
         type="primary",
         use_container_width=True,
-        disabled=not bool(selected_employee),
+        disabled=not bool(
+            selected_employee
+        ),
     ):
         selected_employee_id = (
             employee_options[
@@ -1121,7 +1198,11 @@ if employee_id not in PRACOVNICI:
     st.query_params.clear()
     st.rerun()
 
-employee_name = PRACOVNICI[employee_id]
+
+employee_name = PRACOVNICI[
+    employee_id
+]
+
 
 render_html(
     f"""
@@ -1129,21 +1210,17 @@ render_html(
         <div class="employee-avatar">
             👤
         </div>
-
         <div class="employee-info">
             <div class="employee-label">
                 Přihlášený pracovník
             </div>
-
             <div class="employee-name">
                 {employee_name}
             </div>
-
             <div class="employee-id">
                 Osobní ID: {employee_id}
             </div>
         </div>
-
         <div class="online-chip">
             ● PŘIHLÁŠEN
         </div>
@@ -1161,9 +1238,11 @@ try:
         db,
         employee_id,
     )
+
 except Exception as error:
     st.error(
-        f"Nepodařilo se načíst data: {error}"
+        f"Nepodařilo se načíst data: "
+        f"{error}"
     )
     st.stop()
 
@@ -1177,11 +1256,15 @@ if active:
         active["start_time"]
     )
 
-    @st.fragment(run_every="1s")
+    @st.fragment(
+        run_every="1s"
+    )
     def live_timer() -> None:
         elapsed_seconds = int(
             (
-                datetime.now(timezone.utc)
+                datetime.now(
+                    timezone.utc
+                )
                 - parse_dt(
                     active["start_time"]
                 )
@@ -1194,22 +1277,15 @@ if active:
                 <div class="status-caption">
                     Aktuálně probíhá
                 </div>
-
                 <div class="status-name">
                     {active["activity"].upper()}
                 </div>
-
                 <div class="status-time">
                     {format_duration(elapsed_seconds)}
                 </div>
-
                 <div class="status-start">
                     Start:
-                    {
-                        started_local.strftime(
-                            "%d.%m.%Y %H:%M:%S"
-                        )
-                    }
+                    {started_local.strftime("%d.%m.%Y %H:%M:%S")}
                 </div>
             </div>
             """
@@ -1233,7 +1309,8 @@ if active:
             st.success(
                 f"Činnost {active['activity']} "
                 f"byla ukončena. "
-                f"Trvání: {format_duration(duration)}"
+                f"Trvání: "
+                f"{format_duration(duration)}"
             )
 
             st.rerun()
@@ -1254,13 +1331,11 @@ else:
         """
         <div class="status-card status-idle">
             <div class="idle-icon">
-                ⏸
+                Ⅱ
             </div>
-
             <div class="status-caption">
                 Aktuální stav
             </div>
-
             <div class="status-name">
                 ŽÁDNÁ ČINNOST
             </div>
@@ -1273,14 +1348,16 @@ else:
         <div class="section-title">
             Vyber činnost
         </div>
-
         <div class="section-subtitle">
-            Klepni na činnost, kterou chceš zahájit.
+            Klepni na činnost,
+            kterou chceš zahájit.
         </div>
         """
     )
 
-    left_column, right_column = st.columns(2)
+    left_column, right_column = st.columns(
+        2
+    )
 
     for index, activity in enumerate(
         CINNOSTI
@@ -1322,23 +1399,25 @@ else:
                 st.rerun()
 
     if st.session_state.selected_activity:
+        selected_name = (
+            st.session_state
+            .selected_activity
+            .upper()
+        )
+
         render_html(
             f"""
             <div class="selected-activity">
                 <div class="selected-label">
                     Vybraná činnost
                 </div>
-
                 <div class="selected-name">
-                    {
-                        st.session_state
-                        .selected_activity
-                        .upper()
-                    }
+                    {selected_name}
                 </div>
             </div>
             """
         )
+
     else:
         st.info(
             "Vyber jednu z nabízených činností."
@@ -1369,11 +1448,14 @@ else:
             st.rerun()
 
         except Exception as error:
-            error_text = str(error).lower()
+            error_text = str(
+                error
+            ).lower()
 
             if (
                 "duplicate" in error_text
-                or "one_active_activity" in error_text
+                or "one_active_activity"
+                in error_text
             ):
                 st.warning(
                     "Tento pracovník už má "
@@ -1390,13 +1472,14 @@ else:
 # ODHLÁŠENÍ
 # ============================================================
 
-st.markdown("<br>", unsafe_allow_html=True)
+st.write("")
 
 if active:
     st.caption(
-        "Před odhlášením je potřeba ukončit "
-        "aktuální činnost."
+        "Před odhlášením je potřeba "
+        "ukončit aktuální činnost."
     )
+
 
 if st.button(
     "ODHLÁSIT PRACOVNÍKA",
@@ -1406,6 +1489,7 @@ if st.button(
 ):
     st.session_state.logged_employee_id = None
     st.session_state.selected_activity = None
+
     st.query_params.clear()
 
     st.rerun()
@@ -1427,7 +1511,8 @@ with st.expander(
 
         if not history:
             st.info(
-                "Zatím nejsou uložené žádné záznamy."
+                "Zatím nejsou uložené "
+                "žádné záznamy."
             )
 
         for record in history:
@@ -1448,9 +1533,11 @@ with st.expander(
                     "%H:%M:%S"
                 )
 
-                duration_text = format_duration(
-                    record.get(
-                        "duration_seconds"
+                duration_text = (
+                    format_duration(
+                        record.get(
+                            "duration_seconds"
+                        )
                     )
                 )
 
@@ -1468,7 +1555,9 @@ with st.expander(
             else:
                 elapsed_seconds = int(
                     (
-                        datetime.now(timezone.utc)
+                        datetime.now(
+                            timezone.utc
+                        )
                         - parse_dt(
                             record["start_time"]
                         )
@@ -1493,22 +1582,21 @@ with st.expander(
                     "history-running"
                 )
 
+            activity_name = (
+                record["activity"].upper()
+            )
+
             render_html(
                 f"""
                 <div class="history-card">
                     <div class="history-top">
                         <div class="history-activity">
-                            {
-                                record["activity"]
-                                .upper()
-                            }
+                            {activity_name}
                         </div>
-
                         <div class="{duration_class}">
                             {duration_text}
                         </div>
                     </div>
-
                     <div class="history-time">
                         {time_text}
                     </div>
@@ -1551,7 +1639,9 @@ with st.expander(
 
         filename = (
             "cinnosti_poslednich_24h_"
-            + datetime.now(APP_TZ).strftime(
+            + datetime.now(
+                APP_TZ
+            ).strftime(
                 "%Y-%m-%d_%H-%M"
             )
             + ".xlsx"
