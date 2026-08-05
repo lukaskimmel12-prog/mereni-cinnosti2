@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#00529B">
+  <meta name="description" content="UWH Activity Tracker – evidence pracovních činností">
+  <title>UWH Activity Tracker</title>
+
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="./icon-192.png">
+
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: #eef3f7;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    #loading {
+      position: fixed;
+      inset: 0;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      background: linear-gradient(135deg, #003b70, #00529b);
+      transition: opacity .3s ease, visibility .3s ease;
+    }
+
+    #loading.hidden {
+      opacity: 0;
+      visibility: hidden;
+    }
+
+    .logo {
+      width: 92px;
+      height: 92px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 22px;
+      border-radius: 25px;
+      background: #f58220;
+      color: white;
+      font-size: 32px;
+      font-weight: 900;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, .22);
+    }
+
+    .title {
+      font-size: 25px;
+      font-weight: 900;
+      text-align: center;
+    }
+
+    .subtitle {
+      margin-top: 8px;
+      color: rgba(255, 255, 255, .82);
+      font-size: 14px;
+      text-align: center;
+    }
+
+    .spinner {
+      width: 42px;
+      height: 42px;
+      margin-top: 28px;
+      border: 5px solid rgba(255, 255, 255, .28);
+      border-top-color: #f58220;
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    #app-frame {
+      width: 100%;
+      height: 100%;
+      border: 0;
+      background: #eef3f7;
+    }
+
+    #offline {
+      position: fixed;
+      left: 12px;
+      right: 12px;
+      bottom: 12px;
+      z-index: 20;
+      display: none;
+      padding: 12px 16px;
+      color: white;
+      background: #c62828;
+      border-radius: 12px;
+      font-weight: 700;
+      text-align: center;
+      box-shadow: 0 5px 18px rgba(0, 0, 0, .22);
+    }
+
+    #offline.visible { display: block; }
+  </style>
+</head>
+
+<body>
+  <div id="loading">
+    <div class="logo">UWH</div>
+    <div class="title">UWH Activity Tracker</div>
+    <div class="subtitle">Načítám evidenci činností…</div>
+    <div class="spinner"></div>
+  </div>
+
+  <iframe
+    id="app-frame"
+    title="UWH Activity Tracker"
+    src="https://mereni-cinnosti2.streamlit.app/?embed=true"
+    allow="clipboard-read; clipboard-write"
+  ></iframe>
+
+  <div id="offline">Zařízení není připojené k internetu.</div>
+
+  <script>
+    const frame = document.getElementById("app-frame");
+    const loading = document.getElementById("loading");
+    const offline = document.getElementById("offline");
+
+    frame.addEventListener("load", () => {
+      window.setTimeout(() => loading.classList.add("hidden"), 500);
+    });
+
+    function updateConnectionState() {
+      offline.classList.toggle("visible", !navigator.onLine);
+    }
+
+    window.addEventListener("online", updateConnectionState);
+    window.addEventListener("offline", updateConnectionState);
+    updateConnectionState();
+
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker
+          .register("./service-worker.js")
+          .catch((error) => console.error("Service worker error:", error));
+      });
+    }
+  </script>
+</body>
+</html>

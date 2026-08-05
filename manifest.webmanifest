@@ -1,0 +1,28 @@
+{
+  "id": "/mereni-cinnosti2/",
+  "name": "UWH Activity Tracker",
+  "short_name": "UWH Tracker",
+  "description": "Evidence pracovních činností UWH",
+  "start_url": "/mereni-cinnosti2/",
+  "scope": "/mereni-cinnosti2/",
+  "display": "standalone",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "portrait",
+  "background_color": "#EEF3F7",
+  "theme_color": "#00529B",
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "./icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
