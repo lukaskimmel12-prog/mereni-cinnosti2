@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from html import escape
 from io import BytesIO
 from textwrap import dedent
 from zoneinfo import ZoneInfo
@@ -28,7 +29,7 @@ WHITE = "#FFFFFF"
 DARK_TEXT = "#172A3A"
 GREY_TEXT = "#526574"
 GREEN = "#14804A"
-
+LIGHT_GREEN = "#E5F6ED"
 
 PRACOVNICI = {
     "11122": "Běloubek František",
@@ -63,7 +64,6 @@ PRACOVNICI = {
     "11486": "Liehmová Hana",
 }
 
-
 CINNOSTI = [
     "Aperam",
     "Personna",
@@ -74,29 +74,19 @@ CINNOSTI = [
 
 
 # ============================================================
-# NASTAVENÍ STRÁNKY
+# STRÁNKA
 # ============================================================
 
 st.set_page_config(
     page_title="UWH Activity Tracker",
     page_icon="⏱️",
-    layout="centered",
+    layout="wide",
     initial_sidebar_state="collapsed",
 )
 
 
-# ============================================================
-# HTML
-# ============================================================
-
 def render_html(html: str) -> None:
-    """
-    Používáme st.html místo st.markdown.
-    Díky tomu se HTML nebude zobrazovat jako černý blok kódu.
-    """
-    st.html(
-        dedent(html).strip()
-    )
+    st.html(dedent(html).strip())
 
 
 # ============================================================
@@ -106,20 +96,8 @@ def render_html(html: str) -> None:
 render_html(
     f"""
     <style>
-        #MainMenu {{
+        #MainMenu, footer, header {{
             visibility: hidden;
-        }}
-
-        footer {{
-            visibility: hidden;
-        }}
-
-        header {{
-            visibility: hidden;
-        }}
-
-        html {{
-            scroll-behavior: smooth;
         }}
 
         .stApp {{
@@ -133,14 +111,12 @@ render_html(
         }}
 
         .block-container {{
-            max-width: 760px;
+            max-width: 1380px;
             padding-top: 0.8rem;
             padding-bottom: 2.5rem;
             padding-left: 1rem;
             padding-right: 1rem;
         }}
-
-        /* HLAVIČKA */
 
         .app-header {{
             position: relative;
@@ -152,8 +128,8 @@ render_html(
                     {YUSEN_BLUE}
                 );
             border-radius: 24px;
-            padding: 26px 22px 22px;
-            margin-bottom: 18px;
+            padding: 24px 24px 20px;
+            margin-bottom: 14px;
             box-shadow:
                 0 12px 28px rgba(0, 59, 112, 0.22);
         }}
@@ -161,11 +137,11 @@ render_html(
         .app-header::after {{
             content: "";
             position: absolute;
-            width: 170px;
-            height: 170px;
+            width: 190px;
+            height: 190px;
             border-radius: 50%;
             background: rgba(255, 255, 255, 0.07);
-            top: -80px;
+            top: -95px;
             right: -45px;
         }}
 
@@ -174,24 +150,23 @@ render_html(
             height: 7px;
             border-radius: 10px;
             background: {YUSEN_ORANGE};
-            margin-bottom: 13px;
+            margin-bottom: 12px;
         }}
 
         .app-title {{
             position: relative;
             z-index: 2;
             color: white;
-            font-size: 2rem;
+            font-size: 1.95rem;
             line-height: 1.05;
             font-weight: 950;
-            letter-spacing: 0.4px;
         }}
 
         .app-subtitle {{
             position: relative;
             z-index: 2;
             color: rgba(255, 255, 255, 0.86);
-            font-size: 0.96rem;
+            font-size: 0.95rem;
             margin-top: 7px;
         }}
 
@@ -199,53 +174,14 @@ render_html(
             position: relative;
             z-index: 2;
             display: inline-block;
-            margin-top: 14px;
+            margin-top: 13px;
             padding: 6px 11px;
             border-radius: 30px;
             color: white;
             background: rgba(255, 255, 255, 0.13);
             font-size: 0.82rem;
-            font-weight: 750;
+            font-weight: 800;
         }}
-
-        /* PŘIHLÁŠENÍ */
-
-        .login-card {{
-            background: white;
-            border-radius: 22px;
-            padding: 22px;
-            box-shadow:
-                0 8px 24px rgba(0, 59, 112, 0.10);
-            border: 1px solid rgba(0, 82, 155, 0.09);
-            margin-top: 8px;
-            margin-bottom: 10px;
-        }}
-
-        .login-icon {{
-            width: 58px;
-            height: 58px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 18px;
-            background: {YUSEN_LIGHT_BLUE};
-            font-size: 1.8rem;
-            margin-bottom: 13px;
-        }}
-
-        .login-title {{
-            color: {YUSEN_DARK_BLUE};
-            font-size: 1.35rem;
-            font-weight: 950;
-            margin-bottom: 3px;
-        }}
-
-        .login-description {{
-            color: {GREY_TEXT};
-            font-size: 0.93rem;
-        }}
-
-        /* PRACOVNÍK */
 
         .employee-card {{
             display: flex;
@@ -261,7 +197,6 @@ render_html(
         }}
 
         .employee-avatar {{
-            flex: 0 0 auto;
             width: 56px;
             height: 56px;
             border-radius: 18px;
@@ -276,13 +211,10 @@ render_html(
                 );
             color: white;
             font-size: 1.65rem;
-            box-shadow:
-                0 6px 14px rgba(245, 130, 32, 0.25);
         }}
 
         .employee-info {{
             flex: 1;
-            min-width: 0;
         }}
 
         .employee-label {{
@@ -290,7 +222,6 @@ render_html(
             font-size: 0.75rem;
             font-weight: 800;
             text-transform: uppercase;
-            letter-spacing: 0.6px;
         }}
 
         .employee-name {{
@@ -307,16 +238,13 @@ render_html(
         }}
 
         .online-chip {{
-            flex: 0 0 auto;
             color: {GREEN};
-            background: #E5F6ED;
+            background: {LIGHT_GREEN};
             border-radius: 30px;
             padding: 7px 11px;
             font-size: 0.74rem;
             font-weight: 900;
         }}
-
-        /* STAV */
 
         .status-card {{
             background: white;
@@ -348,7 +276,6 @@ render_html(
         .status-name {{
             color: {YUSEN_DARK_BLUE};
             font-size: 2.25rem;
-            line-height: 1.05;
             font-weight: 950;
             margin-top: 8px;
         }}
@@ -356,10 +283,9 @@ render_html(
         .status-time {{
             color: {YUSEN_ORANGE};
             font-size: 3.25rem;
-            line-height: 1;
             font-weight: 950;
             letter-spacing: 2px;
-            margin-top: 16px;
+            margin-top: 14px;
         }}
 
         .status-start {{
@@ -370,12 +296,12 @@ render_html(
             padding: 7px 12px;
             font-size: 0.84rem;
             font-weight: 750;
-            margin-top: 15px;
+            margin-top: 14px;
         }}
 
         .idle-icon {{
-            width: 70px;
-            height: 70px;
+            width: 68px;
+            height: 68px;
             border-radius: 22px;
             background: {YUSEN_LIGHT_BLUE};
             display: flex;
@@ -387,31 +313,21 @@ render_html(
             font-weight: 900;
         }}
 
-        /* NADPISY */
-
         .section-title {{
             color: {YUSEN_DARK_BLUE};
-            font-size: 1.15rem;
+            font-size: 1.18rem;
             font-weight: 950;
-            margin: 20px 0 10px;
+            margin: 19px 0 8px;
         }}
 
         .section-subtitle {{
             color: {GREY_TEXT};
             font-size: 0.88rem;
-            margin-top: -5px;
             margin-bottom: 11px;
         }}
 
-        /* VYBRANÁ ČINNOST */
-
         .selected-activity {{
-            background:
-                linear-gradient(
-                    135deg,
-                    {YUSEN_LIGHT_BLUE},
-                    #F5FAFE
-                );
+            background: {YUSEN_LIGHT_BLUE};
             border: 2px solid #BED8EB;
             border-left: 8px solid {YUSEN_ORANGE};
             border-radius: 16px;
@@ -433,119 +349,280 @@ render_html(
             margin-top: 2px;
         }}
 
-        /* HISTORIE */
+        .metric-card {{
+            min-height: 125px;
+            height: 100%;
+            background: white;
+            border-radius: 20px;
+            padding: 17px 18px;
+            border: 1px solid rgba(0, 82, 155, 0.09);
+            box-shadow:
+                0 7px 20px rgba(0, 59, 112, 0.09);
+        }}
+
+        .metric-orange {{
+            border-top: 7px solid {YUSEN_ORANGE};
+        }}
+
+        .metric-blue {{
+            border-top: 7px solid {YUSEN_BLUE};
+        }}
+
+        .metric-green {{
+            border-top: 7px solid {GREEN};
+        }}
+
+        .metric-label {{
+            color: {GREY_TEXT};
+            font-size: 0.75rem;
+            font-weight: 850;
+            text-transform: uppercase;
+        }}
+
+        .metric-value {{
+            color: {YUSEN_DARK_BLUE};
+            font-size: 2.15rem;
+            font-weight: 950;
+            margin-top: 11px;
+        }}
+
+        .metric-note {{
+            color: {GREY_TEXT};
+            font-size: 0.84rem;
+            margin-top: 7px;
+        }}
+
+        .dashboard-card {{
+            background: white;
+            border-radius: 22px;
+            padding: 19px;
+            border: 1px solid rgba(0, 82, 155, 0.09);
+            box-shadow:
+                0 8px 24px rgba(0, 59, 112, 0.09);
+            margin-top: 17px;
+        }}
+
+        .dashboard-title {{
+            color: {YUSEN_DARK_BLUE};
+            font-size: 1.22rem;
+            font-weight: 950;
+        }}
+
+        .dashboard-description {{
+            color: {GREY_TEXT};
+            font-size: 0.86rem;
+            margin-top: 3px;
+            margin-bottom: 14px;
+        }}
+
+        .zone-card {{
+            background: #F8FBFD;
+            border: 1px solid #D6E2EA;
+            border-left: 8px solid {YUSEN_BLUE};
+            border-radius: 17px;
+            padding: 14px 15px;
+            margin-bottom: 11px;
+        }}
+
+        .zone-card-active {{
+            border-left-color: {YUSEN_ORANGE};
+        }}
+
+        .zone-header {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }}
+
+        .zone-name {{
+            color: {YUSEN_DARK_BLUE};
+            font-size: 1.08rem;
+            font-weight: 950;
+        }}
+
+        .zone-count {{
+            color: white;
+            background: {YUSEN_BLUE};
+            border-radius: 30px;
+            padding: 5px 10px;
+            font-size: 0.76rem;
+            font-weight: 900;
+        }}
+
+        .zone-count-active {{
+            background: {YUSEN_ORANGE};
+        }}
+
+        .worker-list {{
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 11px;
+        }}
+
+        .worker-chip {{
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            color: {YUSEN_DARK_BLUE};
+            background: {LIGHT_GREEN};
+            border: 1px solid #BDE4CC;
+            border-radius: 30px;
+            padding: 7px 11px;
+            font-size: 0.83rem;
+            font-weight: 850;
+        }}
+
+        .worker-dot {{
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: {GREEN};
+        }}
+
+        .empty-zone {{
+            color: #7A8995;
+            background: #F0F3F5;
+            border-radius: 12px;
+            padding: 9px 11px;
+            font-size: 0.83rem;
+            margin-top: 10px;
+        }}
+
+        .progress-row {{
+            margin-bottom: 14px;
+        }}
+
+        .progress-top {{
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 6px;
+        }}
+
+        .progress-name {{
+            color: {YUSEN_DARK_BLUE};
+            font-size: 0.92rem;
+            font-weight: 900;
+        }}
+
+        .progress-value {{
+            color: {YUSEN_ORANGE_DARK};
+            font-size: 0.88rem;
+            font-weight: 950;
+        }}
+
+        .progress-bg {{
+            width: 100%;
+            height: 13px;
+            background: #E3EAF0;
+            border-radius: 20px;
+            overflow: hidden;
+        }}
+
+        .progress-fill {{
+            height: 100%;
+            border-radius: 20px;
+            background:
+                linear-gradient(
+                    90deg,
+                    {YUSEN_BLUE},
+                    {YUSEN_ORANGE}
+                );
+        }}
+
+        .active-row {{
+            display: grid;
+            grid-template-columns: 1.5fr 1fr 0.7fr;
+            gap: 12px;
+            align-items: center;
+            background: #F8FAFC;
+            border: 1px solid #DDE6ED;
+            border-radius: 14px;
+            padding: 11px 13px;
+            margin-bottom: 8px;
+        }}
+
+        .active-name {{
+            color: {YUSEN_DARK_BLUE};
+            font-weight: 900;
+        }}
+
+        .active-activity {{
+            color: {YUSEN_ORANGE_DARK};
+            font-weight: 900;
+        }}
+
+        .active-time {{
+            color: {GREEN};
+            font-weight: 950;
+            text-align: right;
+        }}
 
         .history-card {{
             background: white;
-            border-radius: 16px;
-            padding: 13px 14px;
+            border-radius: 15px;
+            padding: 12px 13px;
             border: 1px solid #DCE5EC;
-            margin-bottom: 9px;
-            box-shadow:
-                0 3px 10px rgba(0, 59, 112, 0.06);
+            margin-bottom: 8px;
         }}
 
         .history-top {{
             display: flex;
-            align-items: center;
             justify-content: space-between;
-            gap: 10px;
         }}
 
         .history-activity {{
             color: {YUSEN_DARK_BLUE};
-            font-size: 1.02rem;
             font-weight: 950;
         }}
 
         .history-duration {{
             color: {YUSEN_ORANGE_DARK};
-            font-size: 1rem;
             font-weight: 950;
         }}
 
         .history-time {{
             color: {GREY_TEXT};
-            font-size: 0.82rem;
-            margin-top: 5px;
+            font-size: 0.81rem;
+            margin-top: 4px;
         }}
-
-        .history-running {{
-            color: {GREEN};
-        }}
-
-        /* SELECTBOX */
 
         div[data-testid="stSelectbox"] label {{
             color: {YUSEN_DARK_BLUE} !important;
-            font-size: 1rem !important;
             font-weight: 900 !important;
         }}
 
         div[data-testid="stSelectbox"]
         div[data-baseweb="select"] > div {{
-            min-height: 60px !important;
+            min-height: 58px !important;
             background: white !important;
             border: 2px solid #C9D8E3 !important;
             border-radius: 15px !important;
-            color: {YUSEN_DARK_BLUE} !important;
         }}
 
-        div[data-testid="stSelectbox"]
-        div[data-baseweb="select"] > div:focus-within {{
-            border-color: {YUSEN_ORANGE} !important;
-            box-shadow:
-                0 0 0 2px rgba(245, 130, 32, 0.15) !important;
-        }}
-
-        div[data-testid="stSelectbox"]
-        div[data-baseweb="select"] span {{
+        div[data-testid="stSelectbox"] span {{
             color: {YUSEN_DARK_BLUE} !important;
             font-weight: 800 !important;
             opacity: 1 !important;
         }}
 
-        div[data-testid="stSelectbox"]
-        div[data-baseweb="select"] svg {{
-            color: {YUSEN_DARK_BLUE} !important;
-            fill: {YUSEN_DARK_BLUE} !important;
-        }}
-
-        div[role="listbox"] {{
-            background: white !important;
-            border: 1px solid #B7CBD9 !important;
-            border-radius: 13px !important;
-        }}
-
+        div[role="listbox"],
         div[role="option"] {{
             background: white !important;
             color: {YUSEN_DARK_BLUE} !important;
-            font-weight: 750 !important;
         }}
 
         div[role="option"] * {{
             color: {YUSEN_DARK_BLUE} !important;
         }}
 
-        div[role="option"]:hover {{
-            background: {YUSEN_LIGHT_BLUE} !important;
-        }}
-
-        div[role="option"][aria-selected="true"] {{
-            background: #D8E9F6 !important;
-        }}
-
-        /* TLAČÍTKA */
-
         div.stButton > button {{
             width: 100%;
-            min-height: 66px;
+            min-height: 62px;
             border-radius: 16px;
-            font-size: 1.05rem;
+            font-size: 1rem;
             font-weight: 950;
             border: none;
-            box-shadow:
-                0 5px 14px rgba(0, 59, 112, 0.13);
         }}
 
         div.stButton > button[kind="primary"] {{
@@ -575,115 +652,66 @@ render_html(
 
         div.stButton > button:disabled {{
             background: #A8B6C1 !important;
-            color: white !important;
             opacity: 0.7;
         }}
 
-        /* DOWNLOAD */
-
         div[data-testid="stDownloadButton"] > button {{
             width: 100%;
-            min-height: 64px;
+            min-height: 62px;
             border-radius: 16px;
-            border: none !important;
-            background:
-                linear-gradient(
-                    135deg,
-                    {YUSEN_BLUE},
-                    {YUSEN_DARK_BLUE}
-                ) !important;
+            border: none;
+            background: {YUSEN_BLUE} !important;
             color: white !important;
-            font-size: 1.02rem;
             font-weight: 950;
         }}
 
         div[data-testid="stDownloadButton"] > button * {{
             color: white !important;
-            opacity: 1 !important;
         }}
-
-        /* EXPANDERY */
 
         div[data-testid="stExpander"] {{
             background: white !important;
             border: 1px solid #D4E0E8 !important;
             border-radius: 17px !important;
             overflow: hidden;
-            box-shadow:
-                0 4px 14px rgba(0, 59, 112, 0.06);
-        }}
-
-        div[data-testid="stExpander"] summary {{
-            min-height: 58px;
-            background: white !important;
         }}
 
         div[data-testid="stExpander"] summary p,
         div[data-testid="stExpander"] summary span {{
             color: {YUSEN_DARK_BLUE} !important;
             font-weight: 900 !important;
-            opacity: 1 !important;
-        }}
-
-        div[data-testid="stExpander"] summary svg {{
-            color: {YUSEN_DARK_BLUE} !important;
-            fill: {YUSEN_DARK_BLUE} !important;
-        }}
-
-        /* HLÁŠKY */
-
-        div[data-testid="stAlert"] {{
-            border-radius: 15px;
         }}
 
         div[data-testid="stAlert"] p,
         div[data-testid="stAlert"] strong {{
             color: {DARK_TEXT} !important;
-            font-weight: 750 !important;
         }}
 
-        .stCaption p {{
-            color: {GREY_TEXT} !important;
-        }}
-
-        @media (max-width: 600px) {{
+        @media (max-width: 800px) {{
             .block-container {{
-                padding-left: 0.75rem;
-                padding-right: 0.75rem;
-            }}
-
-            .app-header {{
-                border-radius: 20px;
-                padding: 22px 18px;
+                padding-left: 0.7rem;
+                padding-right: 0.7rem;
             }}
 
             .app-title {{
-                font-size: 1.65rem;
-            }}
-
-            .status-name {{
-                font-size: 1.9rem;
+                font-size: 1.55rem;
             }}
 
             .status-time {{
-                font-size: 2.65rem;
+                font-size: 2.55rem;
             }}
 
-            .employee-card {{
-                padding: 14px;
+            .active-row {{
+                grid-template-columns: 1fr;
+                gap: 4px;
             }}
 
-            .employee-name {{
-                font-size: 1.08rem;
+            .active-time {{
+                text-align: left;
             }}
 
             .online-chip {{
                 display: none;
-            }}
-
-            div.stButton > button {{
-                min-height: 61px;
-                font-size: 0.95rem;
             }}
         }}
     </style>
@@ -695,15 +723,18 @@ render_html(
 # SESSION STATE
 # ============================================================
 
-employee_from_url = st.query_params.get(
-    "employee"
-)
+if "page" not in st.session_state:
+    st.session_state.page = (
+        st.query_params.get("page")
+        if st.query_params.get("page") in ["evidence", "dashboard"]
+        else "evidence"
+    )
+
+employee_from_url = st.query_params.get("employee")
 
 if "logged_employee_id" not in st.session_state:
     if employee_from_url in PRACOVNICI:
-        st.session_state.logged_employee_id = (
-            employee_from_url
-        )
+        st.session_state.logged_employee_id = employee_from_url
     else:
         st.session_state.logged_employee_id = None
 
@@ -724,8 +755,7 @@ def get_supabase() -> Client:
         )
     except Exception:
         st.error(
-            "Chybí nebo je chybně nastavené "
-            "připojení k Supabase."
+            "Chybí nebo je chybně nastavené připojení k Supabase."
         )
         st.stop()
 
@@ -734,7 +764,7 @@ db = get_supabase()
 
 
 # ============================================================
-# ČASOVÉ FUNKCE
+# FUNKCE
 # ============================================================
 
 def parse_dt(value: str) -> datetime:
@@ -744,39 +774,17 @@ def parse_dt(value: str) -> datetime:
 
 
 def local_dt(value: str) -> datetime:
-    return parse_dt(value).astimezone(
-        APP_TZ
-    )
+    return parse_dt(value).astimezone(APP_TZ)
 
 
-def format_duration(
-    seconds: int | float | None,
-) -> str:
-    total = max(
-        0,
-        int(seconds or 0),
-    )
+def format_duration(seconds: int | float | None) -> str:
+    total = max(0, int(seconds or 0))
 
-    hours, remainder = divmod(
-        total,
-        3600,
-    )
+    hours, remainder = divmod(total, 3600)
+    minutes, seconds = divmod(remainder, 60)
 
-    minutes, seconds = divmod(
-        remainder,
-        60,
-    )
+    return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
 
-    return (
-        f"{hours:02d}:"
-        f"{minutes:02d}:"
-        f"{seconds:02d}"
-    )
-
-
-# ============================================================
-# DATABÁZE
-# ============================================================
 
 def get_active_record(
     database: Client,
@@ -785,26 +793,28 @@ def get_active_record(
     response = (
         database.table("activity_log")
         .select("*")
-        .eq(
-            "employee_id",
-            employee_id,
-        )
-        .is_(
-            "end_time",
-            "null",
-        )
-        .order(
-            "start_time",
-            desc=True,
-        )
+        .eq("employee_id", employee_id)
+        .is_("end_time", "null")
+        .order("start_time", desc=True)
         .limit(1)
         .execute()
     )
 
-    if response.data:
-        return response.data[0]
+    return response.data[0] if response.data else None
 
-    return None
+
+def load_all_active_records(
+    database: Client,
+) -> list[dict]:
+    response = (
+        database.table("activity_log")
+        .select("*")
+        .is_("end_time", "null")
+        .order("start_time", desc=False)
+        .execute()
+    )
+
+    return response.data or []
 
 
 def start_activity(
@@ -813,9 +823,7 @@ def start_activity(
     employee_name: str,
     activity: str,
 ) -> None:
-    database.table(
-        "activity_log"
-    ).insert(
+    database.table("activity_log").insert(
         {
             "employee_id": employee_id,
             "employee_name": employee_name,
@@ -831,21 +839,12 @@ def end_activity(
     database: Client,
     record: dict,
 ) -> int:
-    end_time = datetime.now(
-        timezone.utc
-    )
-
-    start_time = parse_dt(
-        record["start_time"]
-    )
+    end_time = datetime.now(timezone.utc)
+    start_time = parse_dt(record["start_time"])
 
     duration_seconds = max(
         0,
-        int(
-            (
-                end_time - start_time
-            ).total_seconds()
-        ),
+        int((end_time - start_time).total_seconds()),
     )
 
     (
@@ -856,43 +855,12 @@ def end_activity(
                 "duration_seconds": duration_seconds,
             }
         )
-        .eq(
-            "id",
-            record["id"],
-        )
-        .is_(
-            "end_time",
-            "null",
-        )
+        .eq("id", record["id"])
+        .is_("end_time", "null")
         .execute()
     )
 
     return duration_seconds
-
-
-def load_last_24_hours(
-    database: Client,
-) -> list[dict]:
-    since = (
-        datetime.now(timezone.utc)
-        - timedelta(hours=24)
-    )
-
-    response = (
-        database.table("activity_log")
-        .select("*")
-        .gte(
-            "start_time",
-            since.isoformat(),
-        )
-        .order(
-            "start_time",
-            desc=False,
-        )
-        .execute()
-    )
-
-    return response.data or []
 
 
 def load_employee_history(
@@ -903,14 +871,8 @@ def load_employee_history(
     response = (
         database.table("activity_log")
         .select("*")
-        .eq(
-            "employee_id",
-            employee_id,
-        )
-        .order(
-            "start_time",
-            desc=True,
-        )
+        .eq("employee_id", employee_id)
+        .order("start_time", desc=True)
         .limit(limit)
         .execute()
     )
@@ -918,27 +880,31 @@ def load_employee_history(
     return response.data or []
 
 
-# ============================================================
-# EXCEL EXPORT
-# ============================================================
-
-def make_excel(
-    rows: list[dict],
-) -> bytes:
-    output_rows = []
-
-    now_utc = datetime.now(
+def load_last_24_hours(
+    database: Client,
+) -> list[dict]:
+    since = datetime.now(
         timezone.utc
+    ) - timedelta(hours=24)
+
+    response = (
+        database.table("activity_log")
+        .select("*")
+        .gte("start_time", since.isoformat())
+        .order("start_time", desc=False)
+        .execute()
     )
 
-    for row in rows:
-        start_local = local_dt(
-            row["start_time"]
-        )
+    return response.data or []
 
-        end_value = row.get(
-            "end_time"
-        )
+
+def make_excel(rows: list[dict]) -> bytes:
+    output_rows = []
+    now_utc = datetime.now(timezone.utc)
+
+    for row in rows:
+        start_local = local_dt(row["start_time"])
+        end_value = row.get("end_time")
 
         end_local = (
             local_dt(end_value)
@@ -946,9 +912,7 @@ def make_excel(
             else None
         )
 
-        if row.get(
-            "duration_seconds"
-        ) is not None:
+        if row.get("duration_seconds") is not None:
             duration_seconds = int(
                 row["duration_seconds"]
             )
@@ -956,27 +920,19 @@ def make_excel(
             duration_seconds = int(
                 (
                     now_utc
-                    - parse_dt(
-                        row["start_time"]
-                    )
+                    - parse_dt(row["start_time"])
                 ).total_seconds()
             )
 
         output_rows.append(
             {
-                "Datum": start_local.strftime(
-                    "%d.%m.%Y"
-                ),
+                "Datum": start_local.strftime("%d.%m.%Y"),
                 "ID": row["employee_id"],
                 "Jméno": row["employee_name"],
                 "Činnost": row["activity"],
-                "Start": start_local.strftime(
-                    "%H:%M:%S"
-                ),
+                "Start": start_local.strftime("%H:%M:%S"),
                 "Konec": (
-                    end_local.strftime(
-                        "%H:%M:%S"
-                    )
+                    end_local.strftime("%H:%M:%S")
                     if end_local
                     else ""
                 ),
@@ -1029,10 +985,7 @@ def make_excel(
         ]
 
         worksheet.freeze_panes = "A2"
-
-        worksheet.auto_filter.ref = (
-            worksheet.dimensions
-        )
+        worksheet.auto_filter.ref = worksheet.dimensions
 
         header_fill = PatternFill(
             fill_type="solid",
@@ -1076,11 +1029,7 @@ def make_excel(
 # HLAVIČKA
 # ============================================================
 
-today_text = datetime.now(
-    APP_TZ
-).strftime(
-    "%A %d.%m.%Y"
-)
+now_local = datetime.now(APP_TZ)
 
 day_translation = {
     "Monday": "Pondělí",
@@ -1092,14 +1041,13 @@ day_translation = {
     "Sunday": "Neděle",
 }
 
-for english_day, czech_day in (
-    day_translation.items()
-):
+today_text = now_local.strftime("%A %d.%m.%Y")
+
+for english_day, czech_day in day_translation.items():
     today_text = today_text.replace(
         english_day,
         czech_day,
     )
-
 
 render_html(
     f"""
@@ -1109,7 +1057,7 @@ render_html(
             UWH ACTIVITY TRACKER
         </div>
         <div class="app-subtitle">
-            Evidence pracovních činností
+            Evidence pracovních činností a živý dashboard
         </div>
         <div class="app-date">
             {today_text}
@@ -1120,22 +1068,437 @@ render_html(
 
 
 # ============================================================
-# PŘIHLÁŠENÍ
+# VLASTNÍ MENU
+# ============================================================
+
+menu_left, menu_right = st.columns(2)
+
+with menu_left:
+    if st.button(
+        "🏠 EVIDENCE ČINNOSTÍ",
+        type=(
+            "primary"
+            if st.session_state.page == "evidence"
+            else "secondary"
+        ),
+        use_container_width=True,
+    ):
+        st.session_state.page = "evidence"
+        st.query_params["page"] = "evidence"
+        st.rerun()
+
+with menu_right:
+    if st.button(
+        "📊 LIVE DASHBOARD",
+        type=(
+            "primary"
+            if st.session_state.page == "dashboard"
+            else "secondary"
+        ),
+        use_container_width=True,
+    ):
+        st.session_state.page = "dashboard"
+        st.query_params["page"] = "dashboard"
+        st.rerun()
+
+
+# ============================================================
+# LIVE DASHBOARD
+# ============================================================
+
+if st.session_state.page == "dashboard":
+
+    @st.fragment(run_every="5s")
+    def render_dashboard() -> None:
+        try:
+            records = load_all_active_records(db)
+
+        except Exception as error:
+            st.error(
+                f"Nepodařilo se načíst dashboard: {error}"
+            )
+            return
+
+        current_utc = datetime.now(timezone.utc)
+        current_local = current_utc.astimezone(APP_TZ)
+
+        grouped = {
+            activity: []
+            for activity in CINNOSTI
+        }
+
+        for record in records:
+            activity = str(
+                record.get("activity", "Neznámá")
+            )
+
+            if activity not in grouped:
+                grouped[activity] = []
+
+            grouped[activity].append(record)
+
+        worker_count = len(records)
+
+        occupied_count = sum(
+            1
+            for activity_records in grouped.values()
+            if activity_records
+        )
+
+        busiest_activity = "Žádná"
+
+        if records:
+            busiest_activity = max(
+                grouped,
+                key=lambda activity: len(
+                    grouped[activity]
+                ),
+            )
+
+        longest_seconds = 0
+
+        if records:
+            oldest_start = min(
+                parse_dt(record["start_time"])
+                for record in records
+            )
+
+            longest_seconds = int(
+                (
+                    current_utc - oldest_start
+                ).total_seconds()
+            )
+
+        render_html(
+            f"""
+            <div class="dashboard-card">
+                <div class="dashboard-title">
+                    Live přehled provozu
+                </div>
+                <div class="dashboard-description">
+                    Poslední aktualizace:
+                    {current_local.strftime("%d.%m.%Y %H:%M:%S")}
+                    · obnovuje se každých 5 sekund
+                </div>
+            </div>
+            """
+        )
+
+        metric_1, metric_2, metric_3, metric_4 = (
+            st.columns(4)
+        )
+
+        with metric_1:
+            render_html(
+                f"""
+                <div class="metric-card metric-green">
+                    <div class="metric-label">
+                        Právě pracuje
+                    </div>
+                    <div class="metric-value">
+                        {worker_count}
+                    </div>
+                    <div class="metric-note">
+                        aktivních pracovníků
+                    </div>
+                </div>
+                """
+            )
+
+        with metric_2:
+            render_html(
+                f"""
+                <div class="metric-card metric-blue">
+                    <div class="metric-label">
+                        Obsazené činnosti
+                    </div>
+                    <div class="metric-value">
+                        {occupied_count}
+                    </div>
+                    <div class="metric-note">
+                        z celkem {len(CINNOSTI)}
+                    </div>
+                </div>
+                """
+            )
+
+        with metric_3:
+            render_html(
+                f"""
+                <div class="metric-card metric-orange">
+                    <div class="metric-label">
+                        Nejvíce pracovníků
+                    </div>
+                    <div
+                        class="metric-value"
+                        style="font-size:1.45rem;"
+                    >
+                        {escape(busiest_activity)}
+                    </div>
+                    <div class="metric-note">
+                        {
+                            len(
+                                grouped.get(
+                                    busiest_activity,
+                                    [],
+                                )
+                            )
+                            if records
+                            else 0
+                        }
+                        pracovníků
+                    </div>
+                </div>
+                """
+            )
+
+        with metric_4:
+            render_html(
+                f"""
+                <div class="metric-card metric-blue">
+                    <div class="metric-label">
+                        Nejdelší aktivita
+                    </div>
+                    <div
+                        class="metric-value"
+                        style="font-size:1.65rem;"
+                    >
+                        {format_duration(longest_seconds)}
+                    </div>
+                    <div class="metric-note">
+                        aktuálně běžící záznam
+                    </div>
+                </div>
+                """
+            )
+
+        if not records:
+            st.info(
+                "Momentálně není spuštěná žádná činnost."
+            )
+            return
+
+        map_column, graph_column = st.columns(
+            [1.25, 0.75]
+        )
+
+        with map_column:
+            render_html(
+                """
+                <div class="dashboard-card">
+                    <div class="dashboard-title">
+                        Mapa skladu
+                    </div>
+                    <div class="dashboard-description">
+                        Pracovníci podle právě spuštěné činnosti
+                    </div>
+                </div>
+                """
+            )
+
+            for activity in CINNOSTI:
+                workers = grouped.get(activity, [])
+
+                zone_class = (
+                    "zone-card zone-card-active"
+                    if workers
+                    else "zone-card"
+                )
+
+                count_class = (
+                    "zone-count zone-count-active"
+                    if workers
+                    else "zone-count"
+                )
+
+                if workers:
+                    chips = ""
+
+                    for worker in workers:
+                        worker_name = escape(
+                            str(
+                                worker.get(
+                                    "employee_name",
+                                    "",
+                                )
+                            )
+                        )
+
+                        chips += (
+                            '<div class="worker-chip">'
+                            '<span class="worker-dot"></span>'
+                            f"{worker_name}"
+                            "</div>"
+                        )
+
+                    zone_body = (
+                        '<div class="worker-list">'
+                        f"{chips}"
+                        "</div>"
+                    )
+
+                else:
+                    zone_body = (
+                        '<div class="empty-zone">'
+                        "Momentálně zde nikdo nepracuje."
+                        "</div>"
+                    )
+
+                render_html(
+                    f"""
+                    <div class="{zone_class}">
+                        <div class="zone-header">
+                            <div class="zone-name">
+                                {escape(activity.upper())}
+                            </div>
+                            <div class="{count_class}">
+                                {len(workers)} pracovníků
+                            </div>
+                        </div>
+                        {zone_body}
+                    </div>
+                    """
+                )
+
+        with graph_column:
+            render_html(
+                """
+                <div class="dashboard-card">
+                    <div class="dashboard-title">
+                        Aktuální rozdělení
+                    </div>
+                    <div class="dashboard-description">
+                        Podíl aktivních pracovníků podle činnosti
+                    </div>
+                </div>
+                """
+            )
+
+            total = max(1, worker_count)
+
+            for activity in CINNOSTI:
+                count = len(
+                    grouped.get(activity, [])
+                )
+
+                percentage = (
+                    count / total * 100
+                )
+
+                render_html(
+                    f"""
+                    <div class="progress-row">
+                        <div class="progress-top">
+                            <div class="progress-name">
+                                {escape(activity)}
+                            </div>
+                            <div class="progress-value">
+                                {percentage:.1f} % · {count}
+                            </div>
+                        </div>
+                        <div class="progress-bg">
+                            <div
+                                class="progress-fill"
+                                style="width:{percentage:.2f}%"
+                            ></div>
+                        </div>
+                    </div>
+                    """
+                )
+
+            chart_data = pd.DataFrame(
+                {
+                    "Činnost": CINNOSTI,
+                    "Pracovníci": [
+                        len(grouped.get(activity, []))
+                        for activity in CINNOSTI
+                    ],
+                }
+            ).set_index("Činnost")
+
+            st.bar_chart(
+                chart_data,
+                use_container_width=True,
+            )
+
+        render_html(
+            """
+            <div class="dashboard-card">
+                <div class="dashboard-title">
+                    Aktivní pracovníci
+                </div>
+                <div class="dashboard-description">
+                    Přehled všech právě probíhajících záznamů
+                </div>
+            </div>
+            """
+        )
+
+        for record in sorted(
+            records,
+            key=lambda item: parse_dt(
+                item["start_time"]
+            ),
+        ):
+            employee_name = escape(
+                str(
+                    record.get(
+                        "employee_name",
+                        "",
+                    )
+                )
+            )
+
+            activity = escape(
+                str(
+                    record.get(
+                        "activity",
+                        "",
+                    )
+                )
+            )
+
+            elapsed = int(
+                (
+                    current_utc
+                    - parse_dt(record["start_time"])
+                ).total_seconds()
+            )
+
+            render_html(
+                f"""
+                <div class="active-row">
+                    <div class="active-name">
+                        ● {employee_name}
+                    </div>
+                    <div class="active-activity">
+                        {activity}
+                    </div>
+                    <div class="active-time">
+                        {format_duration(elapsed)}
+                    </div>
+                </div>
+                """
+            )
+
+    render_dashboard()
+    st.stop()
+
+
+# ============================================================
+# EVIDENCE – PŘIHLÁŠENÍ
 # ============================================================
 
 if not st.session_state.logged_employee_id:
     render_html(
         """
-        <div class="login-card">
-            <div class="login-icon">
-                👤
+        <div class="dashboard-card">
+            <div class="dashboard-title">
+                👤 Přihlášení pracovníka
             </div>
-            <div class="login-title">
-                Přihlášení pracovníka
-            </div>
-            <div class="login-description">
-                Vyber své jméno ze seznamu
-                a pokračuj tlačítkem Přihlásit.
+            <div class="dashboard-description">
+                Vyber své jméno ze seznamu a pokračuj
+                tlačítkem Přihlásit.
             </div>
         </div>
         """
@@ -1143,15 +1506,12 @@ if not st.session_state.logged_employee_id:
 
     employee_options = {
         f"{name} – ID {employee_id}": employee_id
-        for employee_id, name
-        in PRACOVNICI.items()
+        for employee_id, name in PRACOVNICI.items()
     }
 
     selected_employee = st.selectbox(
         "Pracovník",
-        options=list(
-            employee_options.keys()
-        ),
+        options=list(employee_options.keys()),
         index=None,
         placeholder="Vyber své jméno",
     )
@@ -1160,49 +1520,35 @@ if not st.session_state.logged_employee_id:
         "PŘIHLÁSIT SE",
         type="primary",
         use_container_width=True,
-        disabled=not bool(
-            selected_employee
-        ),
+        disabled=not bool(selected_employee),
     ):
-        selected_employee_id = (
-            employee_options[
-                selected_employee
-            ]
-        )
+        selected_employee_id = employee_options[
+            selected_employee
+        ]
 
         st.session_state.logged_employee_id = (
             selected_employee_id
         )
 
         st.session_state.selected_activity = None
-
-        st.query_params["employee"] = (
-            selected_employee_id
-        )
-
+        st.query_params["employee"] = selected_employee_id
         st.rerun()
 
     st.stop()
 
 
 # ============================================================
-# PŘIHLÁŠENÝ PRACOVNÍK
+# EVIDENCE – PRACOVNÍK
 # ============================================================
 
-employee_id = (
-    st.session_state.logged_employee_id
-)
+employee_id = st.session_state.logged_employee_id
 
 if employee_id not in PRACOVNICI:
     st.session_state.logged_employee_id = None
-    st.query_params.clear()
+    st.query_params.pop("employee", None)
     st.rerun()
 
-
-employee_name = PRACOVNICI[
-    employee_id
-]
-
+employee_name = PRACOVNICI[employee_id]
 
 render_html(
     f"""
@@ -1228,11 +1574,6 @@ render_html(
     """
 )
 
-
-# ============================================================
-# AKTUÁLNÍ ČINNOST
-# ============================================================
-
 try:
     active = get_active_record(
         db,
@@ -1241,14 +1582,13 @@ try:
 
 except Exception as error:
     st.error(
-        f"Nepodařilo se načíst data: "
-        f"{error}"
+        f"Nepodařilo se načíst data: {error}"
     )
     st.stop()
 
 
 # ============================================================
-# BĚŽÍCÍ ČINNOST
+# EVIDENCE – AKTIVNÍ ČINNOST
 # ============================================================
 
 if active:
@@ -1256,18 +1596,12 @@ if active:
         active["start_time"]
     )
 
-    @st.fragment(
-        run_every="1s"
-    )
+    @st.fragment(run_every="1s")
     def live_timer() -> None:
-        elapsed_seconds = int(
+        elapsed = int(
             (
-                datetime.now(
-                    timezone.utc
-                )
-                - parse_dt(
-                    active["start_time"]
-                )
+                datetime.now(timezone.utc)
+                - parse_dt(active["start_time"])
             ).total_seconds()
         )
 
@@ -1281,7 +1615,7 @@ if active:
                     {active["activity"].upper()}
                 </div>
                 <div class="status-time">
-                    {format_duration(elapsed_seconds)}
+                    {format_duration(elapsed)}
                 </div>
                 <div class="status-start">
                     Start:
@@ -1298,32 +1632,23 @@ if active:
         type="primary",
         use_container_width=True,
     ):
-        try:
-            duration = end_activity(
-                db,
-                active,
-            )
+        duration = end_activity(
+            db,
+            active,
+        )
 
-            st.session_state.selected_activity = None
+        st.session_state.selected_activity = None
 
-            st.success(
-                f"Činnost {active['activity']} "
-                f"byla ukončena. "
-                f"Trvání: "
-                f"{format_duration(duration)}"
-            )
+        st.success(
+            f"Činnost {active['activity']} byla ukončena. "
+            f"Trvání: {format_duration(duration)}"
+        )
 
-            st.rerun()
-
-        except Exception as error:
-            st.error(
-                f"Činnost se nepodařilo "
-                f"ukončit: {error}"
-            )
+        st.rerun()
 
 
 # ============================================================
-# VÝBĚR ČINNOSTI
+# EVIDENCE – VÝBĚR ČINNOSTI
 # ============================================================
 
 else:
@@ -1349,19 +1674,14 @@ else:
             Vyber činnost
         </div>
         <div class="section-subtitle">
-            Klepni na činnost,
-            kterou chceš zahájit.
+            Klepni na činnost, kterou chceš zahájit.
         </div>
         """
     )
 
-    left_column, right_column = st.columns(
-        2
-    )
+    left_column, right_column = st.columns(2)
 
-    for index, activity in enumerate(
-        CINNOSTI
-    ):
+    for index, activity in enumerate(CINNOSTI):
         target_column = (
             left_column
             if index % 2 == 0
@@ -1369,42 +1689,31 @@ else:
         )
 
         with target_column:
-            is_selected = (
+            selected = (
                 st.session_state.selected_activity
                 == activity
             )
 
             button_label = (
                 f"✓ {activity.upper()}"
-                if is_selected
+                if selected
                 else activity.upper()
-            )
-
-            button_type = (
-                "primary"
-                if is_selected
-                else "secondary"
             )
 
             if st.button(
                 button_label,
                 key=f"activity_{activity}",
-                type=button_type,
+                type=(
+                    "primary"
+                    if selected
+                    else "secondary"
+                ),
                 use_container_width=True,
             ):
-                st.session_state.selected_activity = (
-                    activity
-                )
-
+                st.session_state.selected_activity = activity
                 st.rerun()
 
     if st.session_state.selected_activity:
-        selected_name = (
-            st.session_state
-            .selected_activity
-            .upper()
-        )
-
         render_html(
             f"""
             <div class="selected-activity">
@@ -1412,12 +1721,15 @@ else:
                     Vybraná činnost
                 </div>
                 <div class="selected-name">
-                    {selected_name}
+                    {
+                        st.session_state
+                        .selected_activity
+                        .upper()
+                    }
                 </div>
             </div>
             """
         )
-
     else:
         st.info(
             "Vyber jednu z nabízených činností."
@@ -1431,41 +1743,19 @@ else:
             st.session_state.selected_activity
         ),
     ):
-        try:
-            selected_activity = (
-                st.session_state.selected_activity
-            )
+        selected_activity = (
+            st.session_state.selected_activity
+        )
 
-            start_activity(
-                db,
-                employee_id,
-                employee_name,
-                selected_activity,
-            )
+        start_activity(
+            db,
+            employee_id,
+            employee_name,
+            selected_activity,
+        )
 
-            st.session_state.selected_activity = None
-
-            st.rerun()
-
-        except Exception as error:
-            error_text = str(
-                error
-            ).lower()
-
-            if (
-                "duplicate" in error_text
-                or "one_active_activity"
-                in error_text
-            ):
-                st.warning(
-                    "Tento pracovník už má "
-                    "spuštěnou činnost."
-                )
-            else:
-                st.error(
-                    f"Činnost se nepodařilo "
-                    f"spustit: {error}"
-                )
+        st.session_state.selected_activity = None
+        st.rerun()
 
 
 # ============================================================
@@ -1476,10 +1766,9 @@ st.write("")
 
 if active:
     st.caption(
-        "Před odhlášením je potřeba "
-        "ukončit aktuální činnost."
+        "Před odhlášením je potřeba ukončit "
+        "aktuální činnost."
     )
-
 
 if st.button(
     "ODHLÁSIT PRACOVNÍKA",
@@ -1490,7 +1779,7 @@ if st.button(
     st.session_state.logged_employee_id = None
     st.session_state.selected_activity = None
 
-    st.query_params.clear()
+    st.query_params.pop("employee", None)
 
     st.rerun()
 
@@ -1502,112 +1791,75 @@ if st.button(
 with st.expander(
     "📋 Poslední činnosti pracovníka"
 ):
-    try:
-        history = load_employee_history(
-            db,
-            employee_id,
-            limit=8,
+    history = load_employee_history(
+        db,
+        employee_id,
+        limit=8,
+    )
+
+    if not history:
+        st.info(
+            "Zatím nejsou uložené žádné záznamy."
         )
 
-        if not history:
-            st.info(
-                "Zatím nejsou uložené "
-                "žádné záznamy."
+    for record in history:
+        start_local = local_dt(
+            record["start_time"]
+        )
+
+        end_value = record.get("end_time")
+
+        if end_value:
+            end_local = local_dt(end_value)
+
+            end_text = end_local.strftime(
+                "%H:%M:%S"
             )
 
-        for record in history:
-            start_local = local_dt(
-                record["start_time"]
+            duration_text = format_duration(
+                record.get("duration_seconds")
             )
 
-            end_value = record.get(
-                "end_time"
+            time_text = (
+                f"{start_local.strftime('%d.%m.%Y')} · "
+                f"{start_local.strftime('%H:%M:%S')} "
+                f"→ {end_text}"
             )
 
-            if end_value:
-                end_local = local_dt(
-                    end_value
-                )
-
-                end_text = end_local.strftime(
-                    "%H:%M:%S"
-                )
-
-                duration_text = (
-                    format_duration(
-                        record.get(
-                            "duration_seconds"
-                        )
-                    )
-                )
-
-                time_text = (
-                    f"{start_local.strftime('%d.%m.%Y')} "
-                    f"• "
-                    f"{start_local.strftime('%H:%M:%S')} "
-                    f"→ {end_text}"
-                )
-
-                duration_class = (
-                    "history-duration"
-                )
-
-            else:
-                elapsed_seconds = int(
-                    (
-                        datetime.now(
-                            timezone.utc
-                        )
-                        - parse_dt(
-                            record["start_time"]
-                        )
-                    ).total_seconds()
-                )
-
-                duration_text = (
-                    format_duration(
-                        elapsed_seconds
-                    )
-                )
-
-                time_text = (
-                    f"{start_local.strftime('%d.%m.%Y')} "
-                    f"• "
-                    f"{start_local.strftime('%H:%M:%S')} "
-                    f"→ stále probíhá"
-                )
-
-                duration_class = (
-                    "history-duration "
-                    "history-running"
-                )
-
-            activity_name = (
-                record["activity"].upper()
+        else:
+            elapsed = int(
+                (
+                    datetime.now(timezone.utc)
+                    - parse_dt(record["start_time"])
+                ).total_seconds()
             )
 
-            render_html(
-                f"""
-                <div class="history-card">
-                    <div class="history-top">
-                        <div class="history-activity">
-                            {activity_name}
-                        </div>
-                        <div class="{duration_class}">
-                            {duration_text}
-                        </div>
+            duration_text = format_duration(
+                elapsed
+            )
+
+            time_text = (
+                f"{start_local.strftime('%d.%m.%Y')} · "
+                f"{start_local.strftime('%H:%M:%S')} "
+                "→ stále probíhá"
+            )
+
+        render_html(
+            f"""
+            <div class="history-card">
+                <div class="history-top">
+                    <div class="history-activity">
+                        {escape(record["activity"].upper())}
                     </div>
-                    <div class="history-time">
-                        {time_text}
+                    <div class="history-duration">
+                        {duration_text}
                     </div>
                 </div>
-                """
-            )
-
-    except Exception as error:
-        st.error(
-            f"Historii se nepodařilo "
-            f"načíst: {error}"
+                <div class="history-time">
+                    {time_text}
+                </div>
+            </div>
+            """
         )
 
 
@@ -1618,48 +1870,37 @@ with st.expander(
 with st.expander(
     "📊 Export záznamů"
 ):
-    try:
-        export_rows = load_last_24_hours(
-            db
-        )
+    export_rows = load_last_24_hours(db)
 
-        st.write(
-            "Excel bude obsahovat záznamy "
-            "za posledních 24 hodin."
-        )
+    st.write(
+        "Excel bude obsahovat záznamy "
+        "za posledních 24 hodin."
+    )
 
-        st.caption(
-            f"Počet nalezených záznamů: "
-            f"{len(export_rows)}"
-        )
+    st.caption(
+        f"Počet nalezených záznamů: "
+        f"{len(export_rows)}"
+    )
 
-        excel_data = make_excel(
-            export_rows
-        )
+    excel_data = make_excel(
+        export_rows
+    )
 
-        filename = (
-            "cinnosti_poslednich_24h_"
-            + datetime.now(
-                APP_TZ
-            ).strftime(
-                "%Y-%m-%d_%H-%M"
-            )
-            + ".xlsx"
+    filename = (
+        "cinnosti_poslednich_24h_"
+        + datetime.now(APP_TZ).strftime(
+            "%Y-%m-%d_%H-%M"
         )
+        + ".xlsx"
+    )
 
-        st.download_button(
-            "📥 STÁHNOUT EXCEL",
-            data=excel_data,
-            file_name=filename,
-            mime=(
-                "application/vnd.openxmlformats-"
-                "officedocument.spreadsheetml.sheet"
-            ),
-            use_container_width=True,
-        )
-
-    except Exception as error:
-        st.error(
-            f"Export se nepodařilo "
-            f"připravit: {error}"
-        )
+    st.download_button(
+        "📥 STÁHNOUT EXCEL",
+        data=excel_data,
+        file_name=filename,
+        mime=(
+            "application/vnd.openxmlformats-"
+            "officedocument.spreadsheetml.sheet"
+        ),
+        use_container_width=True,
+    )
