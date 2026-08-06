@@ -362,6 +362,32 @@ render_html(
             margin-top: 2px;
         }}
 
+        .machine-warning {{
+            background: #FFF4E8;
+            border: 2px solid #F5B36D;
+            border-left: 8px solid #F58220;
+            border-radius: 17px;
+            padding: 15px 16px;
+            margin: 14px 0 18px;
+            color: #172A3A;
+            box-shadow: 0 5px 16px rgba(217, 110, 19, 0.12);
+        }}
+
+        .machine-warning-title {{
+            color: #B45309;
+            font-size: 1rem;
+            font-weight: 950;
+            margin-bottom: 8px;
+        }}
+
+        .machine-warning-row {{
+            color: #374151;
+            font-size: 0.9rem;
+            font-weight: 750;
+            line-height: 1.45;
+            margin-top: 4px;
+        }}
+
         .metric-card {{
             min-height: 125px;
             height: 100%;
@@ -700,35 +726,6 @@ render_html(
             color: {DARK_TEXT} !important;
         }}
 
-        /* Přihlašovací tlačítka: vyšší a lépe ovladatelná na Zebra skeneru */
-        .st-key-login_grid div.stButton > button {{
-            min-height: 82px !important;
-            padding: 10px 8px !important;
-            line-height: 1.2 !important;
-            white-space: normal !important;
-        }}
-
-        .st-key-login_grid div.stButton > button p {{
-            font-size: 0.95rem !important;
-            line-height: 1.25 !important;
-        }}
-
-        /* Streamlit na úzkém displeji běžně sloupce skládá pod sebe.
-           V přihlašovacím panelu je vynutíme stále po dvou vedle sebe. */
-        .st-key-login_grid [data-testid="stHorizontalBlock"] {{
-            display: flex !important;
-            flex-direction: row !important;
-            flex-wrap: nowrap !important;
-            gap: 0.45rem !important;
-            align-items: stretch !important;
-        }}
-
-        .st-key-login_grid [data-testid="stColumn"] {{
-            width: calc(50% - 0.225rem) !important;
-            min-width: 0 !important;
-            flex: 1 1 calc(50% - 0.225rem) !important;
-        }}
-
         @media (max-width: 800px) {{
             .block-container {{
                 padding-left: 0.7rem;
@@ -854,6 +851,22 @@ def load_all_active_records(
     response = (
         database.table("activity_log")
         .select("*")
+        .is_("end_time", "null")
+        .order("start_time", desc=False)
+        .execute()
+    )
+
+    return response.data or []
+
+
+def load_active_machine_records(
+    database: Client,
+    machine: str,
+) -> list[dict]:
+    response = (
+        database.table("activity_log")
+        .select("*")
+        .eq("machine", machine)
         .is_("end_time", "null")
         .order("start_time", desc=False)
         .execute()
@@ -1564,35 +1577,36 @@ if not st.session_state.logged_employee_id:
         """
     )
 
-    # Jména jsou ve formátu „Příjmení Jméno“, proto toto řazení
-    # odpovídá abecednímu pořadí podle příjmení.
+    excluded_employee_ids: set[str] = set()
+
     login_employees = sorted(
-        PRACOVNICI.items(),
+        [
+            (employee_id, name)
+            for employee_id, name in PRACOVNICI.items()
+            if employee_id not in excluded_employee_ids
+        ],
         key=lambda item: item[1].casefold(),
     )
 
-    # Vlastní kontejner umožní zvětšit jen přihlašovací tlačítka.
-    with st.container(key="login_grid"):
-        for row_start in range(0, len(login_employees), 2):
-            employee_columns = st.columns(2)
-            row_employees = login_employees[row_start:row_start + 2]
+    for row_start in range(0, len(login_employees), 2):
+        employee_columns = st.columns(2)
+        row_employees = login_employees[row_start:row_start + 2]
 
-            for column_index, (
-                employee_id_option,
-                employee_name_option,
-            ) in enumerate(row_employees):
-                with employee_columns[column_index]:
-                    if st.button(
-                        f"{employee_name_option}\n\nID {employee_id_option}",
-                        key=f"login_employee_{employee_id_option}",
-                        type="secondary",
-                        use_container_width=True,
-                    ):
-                        st.session_state.logged_employee_id = employee_id_option
-                        st.session_state.selected_machine = None
-                        st.session_state.selected_activity = None
-                        st.query_params["employee"] = employee_id_option
-                        st.rerun()
+        for column_index, (employee_id_option, employee_name_option) in enumerate(
+            row_employees
+        ):
+            with employee_columns[column_index]:
+                if st.button(
+                    f"{employee_name_option}\n\nID {employee_id_option}",
+                    key=f"login_employee_{employee_id_option}",
+                    type="secondary",
+                    use_container_width=True,
+                ):
+                    st.session_state.logged_employee_id = employee_id_option
+                    st.session_state.selected_machine = None
+                    st.session_state.selected_activity = None
+                    st.query_params["employee"] = employee_id_option
+                    st.rerun()
 
     st.stop()
 
@@ -1775,6 +1789,75 @@ else:
                 ):
                     st.session_state.selected_machine = machine
                     st.rerun()
+
+    if st.session_state.selected_machine:
+        try:
+            machine_users = load_active_machine_records(
+                db,
+                st.session_state.selected_machine,
+            )
+        except Exception as error:
+            machine_users = []
+            st.warning(
+                f"Nepodařilo se ověřit obsazenost stroje: {error}"
+            )
+
+        if machine_users:
+            warning_rows = ""
+
+            for machine_user in machine_users:
+                worker_name = escape(
+                    str(
+                        machine_user.get(
+                            "employee_name",
+                            "Neznámý pracovník",
+                        )
+                    )
+                )
+
+                worker_activity = escape(
+                    str(
+                        machine_user.get(
+                            "activity",
+                            "Neznámá činnost",
+                        )
+                    )
+                )
+
+                start_value = machine_user.get("start_time")
+
+                if start_value:
+                    start_text = local_dt(
+                        start_value
+                    ).strftime("%H:%M")
+                else:
+                    start_text = "neuvedeno"
+
+                warning_rows += (
+                    '<div class="machine-warning-row">'
+                    f"👤 {worker_name} · "
+                    f"{worker_activity} · od {start_text}"
+                    "</div>"
+                )
+
+            render_html(
+                f"""
+                <div class="machine-warning">
+                    <div class="machine-warning-title">
+                        ⚠️ Stroj {
+                            escape(
+                                st.session_state.selected_machine
+                            )
+                        } je aktuálně veden jako používaný
+                    </div>
+                    {warning_rows}
+                    <div class="machine-warning-row"
+                         style="margin-top:9px;font-weight:650;">
+                        Činnost můžeš i přesto normálně zahájit.
+                    </div>
+                </div>
+                """
+            )
 
     render_html(
         """
