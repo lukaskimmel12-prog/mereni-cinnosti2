@@ -751,8 +751,9 @@ render_html(
 
         .tv-forklift-wrap {{
             position: relative;
+            width: 100%;
+            min-width: 116px;
             height: 68px;
-            min-width: 0;
             overflow: visible;
         }}
 
@@ -807,6 +808,7 @@ render_html(
             }}
 
             .tv-forklift-wrap {{
+                min-width: 72px;
                 height: 48px;
             }}
 
