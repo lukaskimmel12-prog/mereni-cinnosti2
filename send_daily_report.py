@@ -29,6 +29,21 @@ ACTIVITIES = [
     "Rebound",
 ]
 
+MACHINES = [
+    "F33",
+    "F36",
+    "F45",
+    "F86",
+    "F87",
+    "F88",
+    "F117",
+    "F140",
+    "FS04",
+    "FS07 Lion",
+    "Jung1",
+    "Jung2",
+]
+
 YUSEN_BLUE = "00529B"
 YUSEN_DARK_BLUE = "003B70"
 YUSEN_ORANGE = "F58220"
@@ -223,6 +238,27 @@ def calculate_activity_totals(
     return totals
 
 
+def get_machine_name(record: dict) -> str:
+    machine = str(record.get("machine") or "").strip()
+    return machine if machine else "Neuveden"
+
+
+def calculate_machine_activity_totals(
+    records: list[dict],
+    current_utc: datetime,
+) -> dict[tuple[str, str], int]:
+    totals: dict[tuple[str, str], int] = {}
+
+    for record in records:
+        machine = get_machine_name(record)
+        activity = str(record.get("activity") or "Neznámá")
+        duration = get_record_duration(record, current_utc)
+        key = (machine, activity)
+        totals[key] = totals.get(key, 0) + duration
+
+    return totals
+
+
 def calculate_worker_totals(
     records: list[dict],
     current_utc: datetime,
@@ -400,6 +436,7 @@ def create_excel(
         "Datum",
         "ID",
         "Jméno",
+        "Stroj",
         "Činnost",
         "Start",
         "Konec",
@@ -445,6 +482,7 @@ def create_excel(
                     "employee_name",
                     "",
                 ),
+                get_machine_name(record),
                 record.get(
                     "activity",
                     "",
@@ -484,7 +522,7 @@ def create_excel(
             min_row=2,
             max_row=detail_sheet.max_row,
             min_column=1,
-            max_column=9,
+            max_column=10,
         )
 
     detail_sheet.freeze_panes = "A2"
@@ -498,12 +536,13 @@ def create_excel(
             1: 14,
             2: 12,
             3: 28,
-            4: 18,
-            5: 12,
+            4: 16,
+            5: 18,
             6: 12,
-            7: 14,
-            8: 21,
-            9: 14,
+            7: 12,
+            8: 14,
+            9: 21,
+            10: 14,
         },
     )
 
@@ -761,31 +800,39 @@ def create_excel(
 
         summary_sheet[
             f"A{longest_title_row + 2}"
-        ] = "Činnost"
+        ] = "Stroj"
 
         summary_sheet[
             f"B{longest_title_row + 2}"
+        ] = get_machine_name(longest_record)
+
+        summary_sheet[
+            f"A{longest_title_row + 3}"
+        ] = "Činnost"
+
+        summary_sheet[
+            f"B{longest_title_row + 3}"
         ] = longest_record.get(
             "activity",
             "",
         )
 
         summary_sheet[
-            f"A{longest_title_row + 3}"
+            f"A{longest_title_row + 4}"
         ] = "Trvání"
 
         summary_sheet[
-            f"B{longest_title_row + 3}"
+            f"B{longest_title_row + 4}"
         ] = format_duration(
             longest_duration
         )
 
         summary_sheet[
-            f"A{longest_title_row + 4}"
+            f"A{longest_title_row + 5}"
         ] = "Čas"
 
         summary_sheet[
-            f"B{longest_title_row + 4}"
+            f"B{longest_title_row + 5}"
         ] = (
             f"{longest_start.strftime('%H:%M:%S')} – "
             + (
@@ -800,7 +847,7 @@ def create_excel(
         style_table_area(
             summary_sheet,
             min_row=longest_title_row + 1,
-            max_row=longest_title_row + 4,
+            max_row=longest_title_row + 5,
             min_column=1,
             max_column=2,
         )
@@ -809,6 +856,68 @@ def create_excel(
         summary_sheet[
             f"A{longest_title_row + 1}"
         ] = (
+            "Za dané období nejsou záznamy."
+        )
+
+    # --------------------------------------------------------
+    # SOUHRN PODLE STROJE A ČINNOSTI
+    # --------------------------------------------------------
+
+    machine_activity_totals = calculate_machine_activity_totals(
+        records,
+        period_end_utc,
+    )
+
+    machine_title_row = longest_title_row + 8
+
+    add_section_title(
+        summary_sheet,
+        f"A{machine_title_row}",
+        "Rozdělení času podle stroje a činnosti",
+    )
+
+    header_row = machine_title_row + 1
+    summary_sheet[f"A{header_row}"] = "Stroj"
+    summary_sheet[f"B{header_row}"] = "Činnost"
+    summary_sheet[f"C{header_row}"] = "Trvání"
+    summary_sheet[f"D{header_row}"] = "Minuty"
+    style_header_row(summary_sheet, row_number=header_row)
+
+    machine_order = {name: index for index, name in enumerate(MACHINES)}
+    activity_order = {name: index for index, name in enumerate(ACTIVITIES)}
+
+    sorted_machine_rows = sorted(
+        machine_activity_totals.items(),
+        key=lambda item: (
+            machine_order.get(item[0][0], len(MACHINES)),
+            item[0][0],
+            activity_order.get(item[0][1], len(ACTIVITIES)),
+            item[0][1],
+        ),
+    )
+
+    machine_data_start = header_row + 1
+
+    if sorted_machine_rows:
+        for (machine, activity), seconds in sorted_machine_rows:
+            summary_sheet.append(
+                [
+                    machine,
+                    activity,
+                    format_duration(seconds),
+                    round(seconds / 60, 2),
+                ]
+            )
+
+        style_table_area(
+            summary_sheet,
+            min_row=machine_data_start,
+            max_row=summary_sheet.max_row,
+            min_column=1,
+            max_column=4,
+        )
+    else:
+        summary_sheet[f"A{machine_data_start}"] = (
             "Za dané období nejsou záznamy."
         )
 
@@ -1092,44 +1201,62 @@ def create_email_summary(
     records: list[dict],
     period_end_utc: datetime,
 ) -> str:
-    activity_totals = (
-        calculate_activity_totals(
-            records,
-            period_end_utc,
-        )
+    activity_totals = calculate_activity_totals(
+        records,
+        period_end_utc,
+    )
+    machine_activity_totals = calculate_machine_activity_totals(
+        records,
+        period_end_utc,
+    )
+    total_seconds = sum(activity_totals.values())
+    longest_record, longest_duration = find_longest_record(
+        records,
+        period_end_utc,
     )
 
-    total_seconds = sum(
-        activity_totals.values()
-    )
-
-    longest_record, longest_duration = (
-        find_longest_record(
-            records,
-            period_end_utc,
-        )
+    machine_order = {name: index for index, name in enumerate(MACHINES)}
+    activity_order = {name: index for index, name in enumerate(ACTIVITIES)}
+    sorted_machine_rows = sorted(
+        machine_activity_totals.items(),
+        key=lambda item: (
+            machine_order.get(item[0][0], len(MACHINES)),
+            item[0][0],
+            activity_order.get(item[0][1], len(ACTIVITIES)),
+            item[0][1],
+        ),
     )
 
     lines = [
-        "Souhrn podle činností:",
+        "Souhrn podle stroje a činnosti:",
         "",
     ]
 
-    for activity in ACTIVITIES:
-        seconds = activity_totals.get(
-            activity,
-            0,
-        )
+    if sorted_machine_rows:
+        for (machine, activity), seconds in sorted_machine_rows:
+            lines.append(
+                f"{machine} → {activity}: {format_duration(seconds)}"
+            )
+    else:
+        lines.append("Za dané období nejsou záznamy.")
 
+    lines.extend(
+        [
+            "",
+            "Souhrn podle činností:",
+            "",
+        ]
+    )
+
+    for activity in ACTIVITIES:
+        seconds = activity_totals.get(activity, 0)
         percentage = (
             seconds / total_seconds * 100
             if total_seconds > 0
             else 0
         )
-
         lines.append(
-            f"{activity}: "
-            f"{percentage:.1f} % "
+            f"{activity}: {percentage:.1f} % "
             f"({format_duration(seconds)})"
         )
 
@@ -1150,15 +1277,14 @@ def create_email_summary(
                 "Nejdelší jednotlivý záznam:",
                 (
                     f"{longest_record.get('employee_name', '')} – "
+                    f"{get_machine_name(longest_record)} → "
                     f"{longest_record.get('activity', '')} – "
                     f"{format_duration(longest_duration)}"
                 ),
             ]
         )
 
-    return "\n".join(
-        lines
-    )
+    return "\n".join(lines)
 
 
 # ============================================================
@@ -1224,7 +1350,7 @@ Počet záznamů: {len(records)}
 
 Excel obsahuje:
 - Detail – všechny jednotlivé záznamy,
-- Souhrn – procenta, grafy a nejdelší záznam,
+- Souhrn – procenta, grafy, nejdelší záznam a přehled Stroj → Činnost → Čas,
 - Pracovníci – součet času podle pracovníků.
 
 Tento e-mail byl vytvořen automaticky.
