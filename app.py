@@ -1530,43 +1530,47 @@ if not st.session_state.logged_employee_id:
                 👤 Přihlášení pracovníka
             </div>
             <div class="dashboard-description">
-                Vyber své jméno ze seznamu a pokračuj
-                tlačítkem Přihlásit.
+                Klepni na své jméno. Přihlášení proběhne ihned
+                a klávesnice se na skeneru neotevře.
             </div>
         </div>
         """
     )
 
-    employee_options = {
-        f"{name} – ID {employee_id}": employee_id
-        for employee_id, name in PRACOVNICI.items()
+    excluded_employee_ids = {
+        "1617",   # Chárová Zdena
+        "1758",   # Lechmanová Kateřina
+        "11196",  # Štefková Klára
     }
 
-    selected_employee = st.selectbox(
-        "Pracovník",
-        options=list(employee_options.keys()),
-        index=None,
-        placeholder="Vyber své jméno",
+    login_employees = sorted(
+        [
+            (employee_id, name)
+            for employee_id, name in PRACOVNICI.items()
+            if employee_id not in excluded_employee_ids
+        ],
+        key=lambda item: item[1].casefold(),
     )
 
-    if st.button(
-        "PŘIHLÁSIT SE",
-        type="primary",
-        use_container_width=True,
-        disabled=not bool(selected_employee),
-    ):
-        selected_employee_id = employee_options[
-            selected_employee
-        ]
+    for row_start in range(0, len(login_employees), 2):
+        employee_columns = st.columns(2)
+        row_employees = login_employees[row_start:row_start + 2]
 
-        st.session_state.logged_employee_id = (
-            selected_employee_id
-        )
-
-        st.session_state.selected_machine = None
-        st.session_state.selected_activity = None
-        st.query_params["employee"] = selected_employee_id
-        st.rerun()
+        for column_index, (employee_id_option, employee_name_option) in enumerate(
+            row_employees
+        ):
+            with employee_columns[column_index]:
+                if st.button(
+                    f"{employee_name_option}\n\nID {employee_id_option}",
+                    key=f"login_employee_{employee_id_option}",
+                    type="secondary",
+                    use_container_width=True,
+                ):
+                    st.session_state.logged_employee_id = employee_id_option
+                    st.session_state.selected_machine = None
+                    st.session_state.selected_activity = None
+                    st.query_params["employee"] = employee_id_option
+                    st.rerun()
 
     st.stop()
 
