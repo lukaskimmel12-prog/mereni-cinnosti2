@@ -751,34 +751,37 @@ render_html(
             white-space: nowrap;
         }}
 
-        .tv-forklift-wrap {{
+        .tv-vzv-static-wrap {{
             display: flex;
             align-items: center;
             min-width: 0;
         }}
 
-        .tv-forklift-wrap-left {{
+        .tv-vzv-static-wrap-left {{
             justify-content: flex-start;
         }}
 
-        .tv-forklift-wrap-right {{
+        .tv-vzv-static-wrap-right {{
             justify-content: flex-end;
         }}
 
-        .tv-forklift-image {{
-            display: block;
-            width: 112px;
-            height: 62px;
-            object-fit: contain;
-            flex: 0 0 auto;
+        .tv-vzv-static-image {{
+            display: block !important;
+            width: 112px !important;
+            height: 62px !important;
+            object-fit: contain !important;
+            flex: 0 0 auto !important;
             filter: drop-shadow(0 4px 5px rgba(0, 0, 0, 0.22));
+            animation: none !important;
+            transition: none !important;
+            clip-path: none !important;
         }}
 
-        .tv-forklift-left {{
+        .tv-vzv-static-left {{
             transform: none;
         }}
 
-        .tv-forklift-right {{
+        .tv-vzv-static-right {{
             transform: scaleX(-1);
         }}
 
@@ -790,7 +793,7 @@ render_html(
                 font-size: 1.1rem;
             }}
 
-            .tv-forklift-image {{
+            .tv-vzv-static-image {{
                 width: 66px;
                 height: 42px;
             }}
@@ -1421,17 +1424,17 @@ if st.session_state.page in ["dashboard", "tv"]:
         render_html(
             f"""
             <div class="tv-dashboard-header">
-                <div class="tv-forklift-wrap tv-forklift-wrap-left">
+                <div class="tv-vzv-static-wrap tv-vzv-static-wrap-left">
                     <img
-                        class="tv-forklift-image tv-forklift-left"
+                        class="tv-vzv-static-image tv-vzv-static-left"
                         src="{FORKLIFT_ICON_DATA}"
                         alt="Vysokozdvižný vozík"
                     >
                 </div>
                 <div class="tv-dashboard-title">UWH LIVE DASHBOARD</div>
-                <div class="tv-forklift-wrap tv-forklift-wrap-right">
+                <div class="tv-vzv-static-wrap tv-vzv-static-wrap-right">
                     <img
-                        class="tv-forklift-image tv-forklift-right"
+                        class="tv-vzv-static-image tv-vzv-static-right"
                         src="{FORKLIFT_ICON_DATA}"
                         alt="Vysokozdvižný vozík"
                     >
@@ -2203,16 +2206,3 @@ with st.expander(
         ),
         use_container_width=True,
     )
-
-# TV VZV compatibility override
-render_html(
-    '''
-    <style>
-        .tv-forklift-image,
-        .tv-forklift-wrap {
-            animation: none !important;
-            transition: none !important;
-        }
-    </style>
-    '''
-)
