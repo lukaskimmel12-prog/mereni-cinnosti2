@@ -726,6 +726,134 @@ render_html(
             color: {DARK_TEXT} !important;
         }}
 
+        .tv-dashboard-header {{
+            background: linear-gradient(135deg, {YUSEN_DARK_BLUE}, {YUSEN_BLUE});
+            color: white;
+            border-radius: 22px;
+            padding: 20px 24px;
+            margin-top: 16px;
+            margin-bottom: 16px;
+            text-align: center;
+            font-size: 1.8rem;
+            font-weight: 950;
+            letter-spacing: 1px;
+            box-shadow: 0 10px 26px rgba(0, 59, 112, 0.18);
+        }}
+
+        .machine-panel {{
+            background: white;
+            border-radius: 22px;
+            padding: 18px;
+            min-height: 245px;
+            border: 1px solid rgba(0, 82, 155, 0.10);
+            box-shadow: 0 8px 22px rgba(0, 59, 112, 0.09);
+            margin-top: 16px;
+        }}
+
+        .machine-panel-title {{
+            color: {YUSEN_DARK_BLUE};
+            font-size: 1.25rem;
+            font-weight: 950;
+            margin-bottom: 14px;
+        }}
+
+        .machine-grid {{
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+        }}
+
+        .free-machine-card {{
+            background: {LIGHT_GREEN};
+            border: 1px solid #BDE4CC;
+            border-left: 7px solid {GREEN};
+            border-radius: 14px;
+            padding: 12px 14px;
+            color: {YUSEN_DARK_BLUE};
+            font-size: 1.08rem;
+            font-weight: 950;
+        }}
+
+        .occupied-machine-card {{
+            background: #FFF2E8;
+            border: 1px solid #F5C9A5;
+            border-left: 7px solid {YUSEN_ORANGE};
+            border-radius: 14px;
+            padding: 11px 13px;
+        }}
+
+        .occupied-machine-name {{
+            color: {YUSEN_DARK_BLUE};
+            font-size: 1.05rem;
+            font-weight: 950;
+        }}
+
+        .occupied-machine-worker {{
+            color: {YUSEN_ORANGE_DARK};
+            font-size: 0.93rem;
+            font-weight: 900;
+            margin-top: 3px;
+        }}
+
+        .tv-section-card {{
+            background: white;
+            border-radius: 22px;
+            padding: 18px;
+            margin-top: 16px;
+            border: 1px solid rgba(0, 82, 155, 0.10);
+            box-shadow: 0 8px 22px rgba(0, 59, 112, 0.09);
+        }}
+
+        .tv-table-header,
+        .tv-activity-row {{
+            display: grid;
+            grid-template-columns: 1.3fr 0.9fr 1fr 0.8fr;
+            gap: 12px;
+            align-items: center;
+        }}
+
+        .tv-table-header {{
+            color: white;
+            background: {YUSEN_DARK_BLUE};
+            border-radius: 13px;
+            padding: 10px 14px;
+            font-size: 0.82rem;
+            font-weight: 900;
+            text-transform: uppercase;
+        }}
+
+        .tv-activity-row {{
+            background: #F8FAFC;
+            border: 1px solid #DDE6ED;
+            border-left: 7px solid {YUSEN_ORANGE};
+            border-radius: 14px;
+            padding: 12px 14px;
+            margin-top: 9px;
+        }}
+
+        .tv-worker {{
+            color: {YUSEN_DARK_BLUE};
+            font-size: 1rem;
+            font-weight: 950;
+        }}
+
+        .tv-machine {{
+            color: {YUSEN_BLUE};
+            font-weight: 950;
+        }}
+
+        .tv-activity {{
+            color: {YUSEN_ORANGE_DARK};
+            font-weight: 950;
+        }}
+
+        .tv-time {{
+            color: {GREEN};
+            font-weight: 950;
+            text-align: right;
+            font-size: 1.02rem;
+        }}
+
         @media (max-width: 800px) {{
             .block-container {{
                 padding-left: 0.7rem;
@@ -1185,84 +1313,49 @@ if st.session_state.page == "dashboard":
         current_utc = datetime.now(timezone.utc)
         current_local = current_utc.astimezone(APP_TZ)
 
-        grouped = {
-            activity: []
-            for activity in CINNOSTI
-        }
+        def surname_from_full_name(full_name: str) -> str:
+            parts = str(full_name or "").strip().split()
+            return parts[0] if parts else "Neuveden"
+
+        occupied_by_machine: dict[str, list[dict]] = {}
 
         for record in records:
-            activity = str(
-                record.get("activity", "Neznámá")
-            )
+            machine = str(record.get("machine") or "Neuveden")
+            occupied_by_machine.setdefault(machine, []).append(record)
 
-            if activity not in grouped:
-                grouped[activity] = []
+        occupied_known_machines = {
+            machine
+            for machine in occupied_by_machine
+            if machine in STROJE
+        }
 
-            grouped[activity].append(record)
+        free_machines = [
+            machine
+            for machine in STROJE
+            if machine not in occupied_known_machines
+        ]
 
         worker_count = len(records)
-
-        occupied_count = sum(
-            1
-            for activity_records in grouped.values()
-            if activity_records
-        )
-
-        busiest_activity = "Žádná"
-
-        if records:
-            busiest_activity = max(
-                grouped,
-                key=lambda activity: len(
-                    grouped[activity]
-                ),
-            )
-
-        longest_seconds = 0
-
-        if records:
-            oldest_start = min(
-                parse_dt(record["start_time"])
-                for record in records
-            )
-
-            longest_seconds = int(
-                (
-                    current_utc - oldest_start
-                ).total_seconds()
-            )
+        occupied_machine_count = len(occupied_known_machines)
 
         render_html(
             f"""
-            <div class="dashboard-card">
-                <div class="dashboard-title">
-                    Live přehled provozu
-                </div>
-                <div class="dashboard-description">
-                    Poslední aktualizace:
-                    {current_local.strftime("%d.%m.%Y %H:%M:%S")}
-                    · obnovuje se každých 5 sekund
-                </div>
+            <div class="tv-dashboard-header">
+                🚜 UWH LIVE DASHBOARD
             </div>
             """
         )
 
-        metric_1, metric_2, metric_3, metric_4 = (
-            st.columns(4)
-        )
+        metric_1, metric_2, metric_3 = st.columns(3)
 
         with metric_1:
             render_html(
                 f"""
                 <div class="metric-card metric-green">
-                    <div class="metric-label">
-                        Právě pracuje
-                    </div>
-                    <div class="metric-value">
-                        {worker_count}
-                    </div>
+                    <div class="metric-label">Aktivních lidí</div>
+                    <div class="metric-value">{worker_count}</div>
                     <div class="metric-note">
-                        aktivních pracovníků
+                        právě probíhajících záznamů
                     </div>
                 </div>
                 """
@@ -1271,15 +1364,13 @@ if st.session_state.page == "dashboard":
         with metric_2:
             render_html(
                 f"""
-                <div class="metric-card metric-blue">
-                    <div class="metric-label">
-                        Obsazené činnosti
-                    </div>
+                <div class="metric-card metric-orange">
+                    <div class="metric-label">Obsazené stroje</div>
                     <div class="metric-value">
-                        {occupied_count}
+                        {occupied_machine_count} / {len(STROJE)}
                     </div>
                     <div class="metric-note">
-                        z celkem {len(CINNOSTI)}
+                        aktivně používaných strojů
                     </div>
                 </div>
                 """
@@ -1288,249 +1379,126 @@ if st.session_state.page == "dashboard":
         with metric_3:
             render_html(
                 f"""
-                <div class="metric-card metric-orange">
-                    <div class="metric-label">
-                        Nejvíce pracovníků
-                    </div>
-                    <div
-                        class="metric-value"
-                        style="font-size:1.45rem;"
-                    >
-                        {escape(busiest_activity)}
-                    </div>
+                <div class="metric-card metric-blue">
+                    <div class="metric-label">Volné stroje</div>
+                    <div class="metric-value">{len(free_machines)}</div>
                     <div class="metric-note">
-                        {
-                            len(
-                                grouped.get(
-                                    busiest_activity,
-                                    [],
-                                )
-                            )
-                            if records
-                            else 0
-                        }
-                        pracovníků
+                        aktualizováno {current_local.strftime('%H:%M:%S')}
                     </div>
                 </div>
                 """
             )
 
-        with metric_4:
+        free_column, occupied_column = st.columns(2)
+
+        with free_column:
+            free_cards = "".join(
+                f'<div class="free-machine-card">🟢 {escape(machine)}</div>'
+                for machine in free_machines
+            )
+
+            if not free_cards:
+                free_cards = (
+                    '<div class="empty-zone">'
+                    'Momentálně není volný žádný stroj.'
+                    '</div>'
+                )
+
             render_html(
                 f"""
-                <div class="metric-card metric-blue">
-                    <div class="metric-label">
-                        Nejdelší aktivita
+                <div class="machine-panel">
+                    <div class="machine-panel-title">
+                        🟢 VOLNÉ STROJE
                     </div>
-                    <div
-                        class="metric-value"
-                        style="font-size:1.65rem;"
-                    >
-                        {format_duration(longest_seconds)}
-                    </div>
-                    <div class="metric-note">
-                        aktuálně běžící záznam
+                    <div class="machine-grid">
+                        {free_cards}
                     </div>
                 </div>
                 """
             )
 
-        if not records:
-            st.info(
-                "Momentálně není spuštěná žádná činnost."
-            )
-            return
+        with occupied_column:
+            occupied_cards = ""
 
-        map_column, graph_column = st.columns(
-            [1.25, 0.75]
-        )
+            for machine in STROJE:
+                machine_records = occupied_by_machine.get(machine, [])
 
-        with map_column:
-            render_html(
-                """
-                <div class="dashboard-card">
-                    <div class="dashboard-title">
-                        Mapa skladu
-                    </div>
-                    <div class="dashboard-description">
-                        Pracovníci podle právě spuštěné činnosti
-                    </div>
-                </div>
-                """
-            )
-
-            for activity in CINNOSTI:
-                workers = grouped.get(activity, [])
-
-                zone_class = (
-                    "zone-card zone-card-active"
-                    if workers
-                    else "zone-card"
-                )
-
-                count_class = (
-                    "zone-count zone-count-active"
-                    if workers
-                    else "zone-count"
-                )
-
-                if workers:
-                    chips = ""
-
-                    for worker in workers:
-                        worker_name = escape(
-                            str(
-                                worker.get(
-                                    "employee_name",
-                                    "",
-                                )
-                            )
+                for record in machine_records:
+                    surname = escape(
+                        surname_from_full_name(
+                            str(record.get("employee_name", ""))
                         )
-
-                        chips += (
-                            '<div class="worker-chip">'
-                            '<span class="worker-dot"></span>'
-                            f"{worker_name}"
-                            "</div>"
-                        )
-
-                    zone_body = (
-                        '<div class="worker-list">'
-                        f"{chips}"
-                        "</div>"
+                    )
+                    activity = escape(
+                        str(record.get("activity", ""))
                     )
 
-                else:
-                    zone_body = (
-                        '<div class="empty-zone">'
-                        "Momentálně zde nikdo nepracuje."
-                        "</div>"
-                    )
-
-                render_html(
-                    f"""
-                    <div class="{zone_class}">
-                        <div class="zone-header">
-                            <div class="zone-name">
-                                {escape(activity.upper())}
-                            </div>
-                            <div class="{count_class}">
-                                {len(workers)} pracovníků
-                            </div>
+                    occupied_cards += f"""
+                    <div class="occupied-machine-card">
+                        <div class="occupied-machine-name">
+                            🟠 {escape(machine)} – {surname}
                         </div>
-                        {zone_body}
-                    </div>
-                    """
-                )
-
-        with graph_column:
-            render_html(
-                """
-                <div class="dashboard-card">
-                    <div class="dashboard-title">
-                        Aktuální rozdělení
-                    </div>
-                    <div class="dashboard-description">
-                        Podíl aktivních pracovníků podle činnosti
-                    </div>
-                </div>
-                """
-            )
-
-            total = max(1, worker_count)
-
-            for activity in CINNOSTI:
-                count = len(
-                    grouped.get(activity, [])
-                )
-
-                percentage = (
-                    count / total * 100
-                )
-
-                render_html(
-                    f"""
-                    <div class="progress-row">
-                        <div class="progress-top">
-                            <div class="progress-name">
-                                {escape(activity)}
-                            </div>
-                            <div class="progress-value">
-                                {percentage:.1f} % · {count}
-                            </div>
-                        </div>
-                        <div class="progress-bg">
-                            <div
-                                class="progress-fill"
-                                style="width:{percentage:.2f}%"
-                            ></div>
+                        <div class="occupied-machine-worker">
+                            {activity}
                         </div>
                     </div>
                     """
+
+            if not occupied_cards:
+                occupied_cards = (
+                    '<div class="empty-zone">'
+                    'Momentálně není obsazený žádný stroj.'
+                    '</div>'
                 )
 
-            chart_data = pd.DataFrame(
-                {
-                    "Činnost": CINNOSTI,
-                    "Pracovníci": [
-                        len(grouped.get(activity, []))
-                        for activity in CINNOSTI
-                    ],
-                }
-            ).set_index("Činnost")
-
-            st.bar_chart(
-                chart_data,
-                use_container_width=True,
+            render_html(
+                f"""
+                <div class="machine-panel">
+                    <div class="machine-panel-title">
+                        🔴 OBSAZENÉ STROJE
+                    </div>
+                    <div class="machine-grid">
+                        {occupied_cards}
+                    </div>
+                </div>
+                """
             )
 
         render_html(
             """
-            <div class="dashboard-card">
-                <div class="dashboard-title">
-                    Aktivní pracovníci
+            <div class="tv-section-card">
+                <div class="machine-panel-title">
+                    AKTUÁLNÍ ČINNOSTI
                 </div>
-                <div class="dashboard-description">
-                    Přehled všech právě probíhajících záznamů
+                <div class="tv-table-header">
+                    <div>Příjmení</div>
+                    <div>Stroj</div>
+                    <div>Činnost</div>
+                    <div style="text-align:right;">Čas</div>
                 </div>
             </div>
             """
         )
 
+        if not records:
+            st.info("Momentálně není spuštěná žádná činnost.")
+            return
+
         for record in sorted(
             records,
-            key=lambda item: parse_dt(
-                item["start_time"]
-            ),
+            key=lambda item: parse_dt(item["start_time"]),
         ):
-            employee_name = escape(
-                str(
-                    record.get(
-                        "employee_name",
-                        "",
-                    )
+            surname = escape(
+                surname_from_full_name(
+                    str(record.get("employee_name", ""))
                 )
             )
-
             machine = escape(
-                str(
-                    record.get(
-                        "machine",
-                        "",
-                    )
-                    or "Neuveden"
-                )
+                str(record.get("machine") or "Neuveden")
             )
-
             activity = escape(
-                str(
-                    record.get(
-                        "activity",
-                        "",
-                    )
-                )
+                str(record.get("activity", ""))
             )
-
             elapsed = int(
                 (
                     current_utc
@@ -1540,14 +1508,11 @@ if st.session_state.page == "dashboard":
 
             render_html(
                 f"""
-                <div class="active-row">
-                    <div class="active-name">
-                        ● {employee_name}
-                    </div>
-                    <div class="active-activity">
-                        {machine} · {activity}
-                    </div>
-                    <div class="active-time">
+                <div class="tv-activity-row">
+                    <div class="tv-worker">👤 {surname}</div>
+                    <div class="tv-machine">{machine}</div>
+                    <div class="tv-activity">{activity}</div>
+                    <div class="tv-time">
                         {format_duration(elapsed)}
                     </div>
                 </div>
