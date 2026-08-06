@@ -1757,9 +1757,23 @@ else:
         """
     )
 
+    # Před vykreslením zjistíme, které stroje jsou právě používané.
+    # Zelená tečka = volný stroj, oranžová tečka = aktivní záznam.
+    try:
+        all_active_records = load_all_active_records(db)
+        occupied_machines = {
+            str(record.get("machine", "")).strip()
+            for record in all_active_records
+            if str(record.get("machine", "")).strip()
+        }
+    except Exception as error:
+        occupied_machines = set()
+        st.warning(
+            f"Nepodařilo se načíst stav strojů: {error}"
+        )
+
     # Stroje vykreslujeme po dvojicích v jednotlivých řádcích.
-    # Na úzkém displeji skeneru tak zůstane zachované přesné pořadí
-    # F33, F36, F45, F86... místo seskupení celého levého sloupce.
+    # Na úzkém displeji skeneru tak zůstane zachované přesné pořadí.
     for row_start in range(0, len(STROJE), 2):
         row_columns = st.columns(2)
         row_machines = STROJE[row_start:row_start + 2]
@@ -1771,10 +1785,16 @@ else:
                     == machine
                 )
 
+                status_dot = (
+                    "🟠"
+                    if machine in occupied_machines
+                    else "🟢"
+                )
+
                 button_label = (
-                    f"✓ {machine.upper()}"
+                    f"✓ {status_dot} {machine.upper()}"
                     if selected
-                    else machine.upper()
+                    else f"{status_dot} {machine.upper()}"
                 )
 
                 if st.button(
