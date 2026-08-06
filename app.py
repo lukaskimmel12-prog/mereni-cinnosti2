@@ -713,6 +713,22 @@ render_html(
             line-height: 1.25 !important;
         }}
 
+        /* Streamlit na úzkém displeji běžně sloupce skládá pod sebe.
+           V přihlašovacím panelu je vynutíme stále po dvou vedle sebe. */
+        .st-key-login_grid [data-testid="stHorizontalBlock"] {{
+            display: flex !important;
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            gap: 0.45rem !important;
+            align-items: stretch !important;
+        }}
+
+        .st-key-login_grid [data-testid="stColumn"] {{
+            width: calc(50% - 0.225rem) !important;
+            min-width: 0 !important;
+            flex: 1 1 calc(50% - 0.225rem) !important;
+        }}
+
         @media (max-width: 800px) {{
             .block-container {{
                 padding-left: 0.7rem;
