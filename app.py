@@ -893,8 +893,27 @@ render_html(
 if "page" not in st.session_state:
     st.session_state.page = (
         st.query_params.get("page")
-        if st.query_params.get("page") in ["evidence", "dashboard"]
+        if st.query_params.get("page") in ["evidence", "dashboard", "tv"]
         else "evidence"
+    )
+
+# Samostatný režim pro televizi: bez menu, bez přihlášení a bez exportu.
+is_tv_mode = st.session_state.page == "tv"
+
+if is_tv_mode:
+    render_html(
+        """
+        <style>
+            .block-container {
+                max-width: 1600px !important;
+                padding-top: 0.45rem !important;
+                padding-bottom: 0.6rem !important;
+            }
+            html, body, [data-testid="stAppViewContainer"] {
+                overflow: hidden !important;
+            }
+        </style>
+        """
     )
 
 employee_from_url = st.query_params.get("employee")
@@ -1240,64 +1259,65 @@ for english_day, czech_day in day_translation.items():
         czech_day,
     )
 
-render_html(
-    f"""
-    <div class="app-header">
-        <div class="header-accent"></div>
-        <div class="app-title">
-            UWH ACTIVITY TRACKER
+if not is_tv_mode:
+    render_html(
+        f"""
+        <div class="app-header">
+            <div class="header-accent"></div>
+            <div class="app-title">
+                UWH ACTIVITY TRACKER
+            </div>
+            <div class="app-subtitle">
+                Evidence pracovních činností a živý dashboard
+            </div>
+            <div class="app-date">
+                {today_text}
+            </div>
         </div>
-        <div class="app-subtitle">
-            Evidence pracovních činností a živý dashboard
-        </div>
-        <div class="app-date">
-            {today_text}
-        </div>
-    </div>
-    """
-)
+        """
+    )
 
 
-# ============================================================
-# VLASTNÍ MENU
-# ============================================================
+    # ============================================================
+    # VLASTNÍ MENU
+    # ============================================================
 
-menu_left, menu_right = st.columns(2)
+    menu_left, menu_right = st.columns(2)
 
-with menu_left:
-    if st.button(
-        "🏠 EVIDENCE ČINNOSTÍ",
-        type=(
-            "primary"
-            if st.session_state.page == "evidence"
-            else "secondary"
-        ),
-        use_container_width=True,
-    ):
-        st.session_state.page = "evidence"
-        st.query_params["page"] = "evidence"
-        st.rerun()
+    with menu_left:
+        if st.button(
+            "🏠 EVIDENCE ČINNOSTÍ",
+            type=(
+                "primary"
+                if st.session_state.page == "evidence"
+                else "secondary"
+            ),
+            use_container_width=True,
+        ):
+            st.session_state.page = "evidence"
+            st.query_params["page"] = "evidence"
+            st.rerun()
 
-with menu_right:
-    if st.button(
-        "📊 LIVE DASHBOARD",
-        type=(
-            "primary"
-            if st.session_state.page == "dashboard"
-            else "secondary"
-        ),
-        use_container_width=True,
-    ):
-        st.session_state.page = "dashboard"
-        st.query_params["page"] = "dashboard"
-        st.rerun()
+    with menu_right:
+        if st.button(
+            "📊 LIVE DASHBOARD",
+            type=(
+                "primary"
+                if st.session_state.page == "dashboard"
+                else "secondary"
+            ),
+            use_container_width=True,
+        ):
+            st.session_state.page = "dashboard"
+            st.query_params["page"] = "dashboard"
+            st.rerun()
 
 
 # ============================================================
 # LIVE DASHBOARD
 # ============================================================
 
-if st.session_state.page == "dashboard":
+if st.session_state.page in ["dashboard", "tv"]:
 
     @st.fragment(run_every="5s")
     def render_dashboard() -> None:
@@ -1463,6 +1483,10 @@ if st.session_state.page == "dashboard":
                 </div>
                 """
             )
+
+        # Na TV zobrazujeme pouze hlavičku, metriky a přehled strojů.
+        if is_tv_mode:
+            return
 
         render_html(
             """
