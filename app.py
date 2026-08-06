@@ -764,7 +764,8 @@ render_html(
             height: 68px;
             object-fit: contain;
             filter: drop-shadow(0 4px 5px rgba(0, 0, 0, 0.22));
-            will-change: transform;
+            will-change: left, right;
+            animation-fill-mode: both;
         }}
 
         .tv-forklift-left {{
@@ -782,15 +783,15 @@ render_html(
         }}
 
         @keyframes forklift-left-drive {{
-            0%, 12% {{ transform: translateX(0); }}
-            45%, 55% {{ transform: translateX(calc(100% - 112px)); }}
-            88%, 100% {{ transform: translateX(0); }}
+            0%, 12% {{ left: 0; }}
+            45%, 55% {{ left: calc(100% - 112px); }}
+            88%, 100% {{ left: 0; }}
         }}
 
         @keyframes forklift-right-drive {{
-            0%, 12% {{ transform: translateX(0); }}
-            45%, 55% {{ transform: translateX(calc(-100% + 112px)); }}
-            88%, 100% {{ transform: translateX(0); }}
+            0%, 12% {{ right: 0; }}
+            45%, 55% {{ right: calc(100% - 112px); }}
+            88%, 100% {{ right: 0; }}
         }}
 
         @media (max-width: 800px) {{
