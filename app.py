@@ -31,6 +31,8 @@ GREY_TEXT = "#526574"
 GREEN = "#14804A"
 LIGHT_GREEN = "#E5F6ED"
 
+FORKLIFT_ICON_DATA = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48ZyBmaWxsPSIjZmZmZmZmIj48cGF0aCBkPSJNNDMgMjcwaDU4VjExMWMwLTI4IDIzLTUxIDUxLTUxaDE0NGMyNCAwIDQ1IDE2IDUwIDM5bDQzIDE3MWgyNFYxMDVoMjh2MTY1aDQybC0yIDI5SDQ0MnY0NGgtNTRhNzIgNzIgMCAwIDEtMTQwIDBIMTcwYTcyIDcyIDAgMCAxLTE0MSAwSDB2LTM1YzAtMjEgMTctMzggMzgtMzhoNXptODYgMGgyMDhsLTM5LTE1NWMtMi0xMC0xMS0xNy0yMS0xN0gxNTRjLTE0IDAtMjUgMTEtMjUgMjV2MTQ3eiIvPjxwYXRoIGQ9Ik00NDAgMjAxaDcydjIwaC03MnpNNDQwIDIzOWg3MnYyMGgtNzJ6Ii8+PHBhdGggZD0iTTExMSAyMzBoNjd2LTQ4YzAtMTkgMTUtMzQgMzQtMzRoMjljMTkgMCAzNCAxNSAzNCAzNHY0OGg1NHY0MEgxMTF6Ii8+PHBhdGggZD0iTTIyNyAyMTBsNDMtNDMgMTggMTgtNDMgNDN6TTI1MyAyMTVsNjEgNjUtMjAgMTgtNjEtNjV6Ii8+PGNpcmNsZSBjeD0iOTkiIGN5PSIzNDYiIHI9IjYyIi8+PGNpcmNsZSBjeD0iMzE4IiBjeT0iMzQ2IiByPSI2MiIvPjwvZz48ZyBmaWxsPSIjMTczMjRkIj48Y2lyY2xlIGN4PSI5OSIgY3k9IjM0NiIgcj0iMjQiLz48Y2lyY2xlIGN4PSIzMTgiIGN5PSIzNDYiIHI9IjI0Ii8+PC9nPjwvc3ZnPg=="
+
 PRACOVNICI = {
     "11122": "Běloubek František",
     "11138": "Popelka Filip",
@@ -752,6 +754,7 @@ render_html(
         .tv-forklift-wrap {{
             display: flex;
             align-items: center;
+            min-width: 0;
         }}
 
         .tv-forklift-wrap-left {{
@@ -762,44 +765,45 @@ render_html(
             justify-content: flex-end;
         }}
 
-        .tv-forklift-silhouette {{
-            width: 116px;
-            height: 68px;
+        .tv-forklift-image {{
+            display: block;
+            width: 112px;
+            height: 62px;
+            object-fit: contain;
             flex: 0 0 auto;
             filter: drop-shadow(0 4px 5px rgba(0, 0, 0, 0.22));
-            transform-origin: center;
         }}
 
         .tv-forklift-left {{
-            animation: forklift-left-move 2.5s ease-in-out infinite;
+            animation: forklift-left-move 2.8s ease-in-out infinite;
         }}
 
         .tv-forklift-right {{
             transform: scaleX(-1);
-            animation: forklift-right-move 2.5s ease-in-out infinite;
+            animation: forklift-right-move 2.8s ease-in-out infinite;
         }}
 
         @keyframes forklift-left-move {{
             0%, 100% {{ transform: translateX(0); }}
-            50% {{ transform: translateX(7px); }}
+            50% {{ transform: translateX(8px); }}
         }}
 
         @keyframes forklift-right-move {{
             0%, 100% {{ transform: scaleX(-1) translateX(0); }}
-            50% {{ transform: scaleX(-1) translateX(7px); }}
+            50% {{ transform: scaleX(-1) translateX(8px); }}
         }}
 
         @media (max-width: 800px) {{
             .tv-dashboard-header {{
-                grid-template-columns: 72px 1fr 72px;
-                gap: 8px;
-                padding: 10px 10px;
-                font-size: 1.2rem;
+                grid-template-columns: 68px 1fr 68px;
+                gap: 7px;
+                padding: 9px 10px;
+                font-size: 1.1rem;
             }}
 
-            .tv-forklift-silhouette {{
-                width: 72px;
-                height: 48px;
+            .tv-forklift-image {{
+                width: 66px;
+                height: 42px;
             }}
         }}
 
@@ -1425,29 +1429,19 @@ if st.session_state.page in ["dashboard", "tv"]:
             f"""
             <div class="tv-dashboard-header">
                 <div class="tv-forklift-wrap tv-forklift-wrap-left">
-                    <svg class="tv-forklift-silhouette tv-forklift-left" viewBox="0 0 220 130" role="img" aria-label="Vysokozdvižný vozík">
-<g fill="#FFFFFF">
-<path d="M20 81h29l7-43c2-13 12-22 25-22h57c13 0 24 8 28 20l17 52h12v20h-18a24 24 0 0 1-47 0H78a25 25 0 0 1-49 0H20V81zm49-4h64l-14-43H83c-7 0-12 4-13 11l-6 36 5-4z"/>
-<path d="M151 15h10v75h-10zM165 15h9v75h-9zM172 67h41v7h-41zM172 79h48v7h-48z"/>
-<path d="M43 73h28v-22c0-7 6-13 13-13h12c7 0 13 6 13 13v22h28v15H43z"/>
-<circle cx="53" cy="105" r="19"/><circle cx="153" cy="105" r="18"/>
-</g>
-<g fill="#17324D"><circle cx="53" cy="105" r="7"/><circle cx="153" cy="105" r="7"/></g>
-<path d="M101 64l17-17 8 8-17 17zM112 66l23 25-8 7-23-25z" fill="#FFFFFF"/>
-</svg>
+                    <img
+                        class="tv-forklift-image tv-forklift-left"
+                        src="{FORKLIFT_ICON_DATA}"
+                        alt="Vysokozdvižný vozík"
+                    >
                 </div>
                 <div class="tv-dashboard-title">UWH LIVE DASHBOARD</div>
                 <div class="tv-forklift-wrap tv-forklift-wrap-right">
-                    <svg class="tv-forklift-silhouette tv-forklift-right" viewBox="0 0 220 130" role="img" aria-label="Vysokozdvižný vozík">
-<g fill="#FFFFFF">
-<path d="M20 81h29l7-43c2-13 12-22 25-22h57c13 0 24 8 28 20l17 52h12v20h-18a24 24 0 0 1-47 0H78a25 25 0 0 1-49 0H20V81zm49-4h64l-14-43H83c-7 0-12 4-13 11l-6 36 5-4z"/>
-<path d="M151 15h10v75h-10zM165 15h9v75h-9zM172 67h41v7h-41zM172 79h48v7h-48z"/>
-<path d="M43 73h28v-22c0-7 6-13 13-13h12c7 0 13 6 13 13v22h28v15H43z"/>
-<circle cx="53" cy="105" r="19"/><circle cx="153" cy="105" r="18"/>
-</g>
-<g fill="#17324D"><circle cx="53" cy="105" r="7"/><circle cx="153" cy="105" r="7"/></g>
-<path d="M101 64l17-17 8 8-17 17zM112 66l23 25-8 7-23-25z" fill="#FFFFFF"/>
-</svg>
+                    <img
+                        class="tv-forklift-image tv-forklift-right"
+                        src="{FORKLIFT_ICON_DATA}"
+                        alt="Vysokozdvižný vozík"
+                    >
                 </div>
             </div>
             """
