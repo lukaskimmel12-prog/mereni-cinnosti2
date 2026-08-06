@@ -974,16 +974,113 @@ if "page" not in st.session_state:
 is_tv_mode = st.session_state.page == "tv"
 
 if is_tv_mode:
+    # Odlehčený režim pro starší televizní prohlížeče.
+    # Stránka se celá obnoví každých 10 sekund; CSS animace VZV běží plynule mezi obnoveními.
     render_html(
         """
+        <meta http-equiv="refresh" content="10">
         <style>
             .block-container {
                 max-width: 1600px !important;
-                padding-top: 0.45rem !important;
-                padding-bottom: 0.6rem !important;
+                padding: 0.35rem 0.75rem 0.55rem !important;
             }
-            html, body, [data-testid="stAppViewContainer"] {
+
+            html, body, [data-testid="stAppViewContainer"], .stApp {
                 overflow: hidden !important;
+            }
+
+            /* TV verze používá jednodušší efekty kvůli starším Smart TV prohlížečům. */
+            .tv-dashboard-header,
+            .metric-card,
+            .machine-panel {
+                box-shadow: none !important;
+            }
+
+            .tv-dashboard-header {
+                display: flex !important;
+                align-items: center !important;
+                justify-content: space-between !important;
+                min-height: 78px !important;
+                padding: 6px 18px !important;
+                margin-top: 4px !important;
+                margin-bottom: 12px !important;
+            }
+
+            .tv-dashboard-title {
+                flex: 0 0 auto !important;
+                padding: 0 18px !important;
+                font-size: 1.75rem !important;
+            }
+
+            .tv-forklift-wrap {
+                flex: 1 1 0 !important;
+                min-width: 180px !important;
+                height: 66px !important;
+            }
+
+            .tv-forklift-vehicle {
+                width: 106px !important;
+                height: 64px !important;
+            }
+
+            .metric-card {
+                min-height: 105px !important;
+                padding: 13px 16px !important;
+            }
+
+            .metric-value {
+                margin-top: 7px !important;
+                font-size: 2rem !important;
+            }
+
+            .machine-panel {
+                min-height: 230px !important;
+                margin-top: 12px !important;
+                padding: 15px !important;
+            }
+
+            .machine-grid {
+                display: grid !important;
+                grid-template-columns: 1fr 1fr !important;
+                gap: 8px !important;
+            }
+
+            .free-machine-card,
+            .occupied-machine-card {
+                padding: 9px 11px !important;
+            }
+
+            /* Jednoduchá animace podporovaná i staršími TV prohlížeči. */
+            .tv-forklift-left {
+                left: 0;
+                -webkit-animation: tv-left-drive 6s ease-in-out infinite;
+                animation: tv-left-drive 6s ease-in-out infinite;
+            }
+
+            .tv-forklift-right {
+                right: 0;
+                -webkit-animation: tv-right-drive 6s ease-in-out infinite;
+                animation: tv-right-drive 6s ease-in-out infinite;
+            }
+
+            @-webkit-keyframes tv-left-drive {
+                0%, 12%, 88%, 100% { left: 0; }
+                44%, 56% { left: calc(100% - 106px); }
+            }
+
+            @keyframes tv-left-drive {
+                0%, 12%, 88%, 100% { left: 0; }
+                44%, 56% { left: calc(100% - 106px); }
+            }
+
+            @-webkit-keyframes tv-right-drive {
+                0%, 12%, 88%, 100% { right: 0; }
+                44%, 56% { right: calc(100% - 106px); }
+            }
+
+            @keyframes tv-right-drive {
+                0%, 12%, 88%, 100% { right: 0; }
+                44%, 56% { right: calc(100% - 106px); }
             }
         </style>
         """
@@ -1392,7 +1489,6 @@ if not is_tv_mode:
 
 if st.session_state.page in ["dashboard", "tv"]:
 
-    @st.fragment(run_every="5s")
     def render_dashboard() -> None:
         try:
             records = load_all_active_records(db)
@@ -1626,7 +1722,17 @@ if st.session_state.page in ["dashboard", "tv"]:
                 """
             )
 
-    render_dashboard()
+    if is_tv_mode:
+        # Na TV vykreslíme lehkou statickou stránku; obnovu zajišťuje meta refresh výše.
+        render_dashboard()
+    else:
+        # V běžném prohlížeči zůstává živá obnova bez načtení celé stránky.
+        @st.fragment(run_every="5s")
+        def render_dashboard_live() -> None:
+            render_dashboard()
+
+        render_dashboard_live()
+
     st.stop()
 
 
