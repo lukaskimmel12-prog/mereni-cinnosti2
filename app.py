@@ -730,14 +730,77 @@ render_html(
             background: linear-gradient(135deg, {YUSEN_DARK_BLUE}, {YUSEN_BLUE});
             color: white;
             border-radius: 22px;
-            padding: 20px 24px;
+            padding: 10px 24px;
             margin-top: 16px;
             margin-bottom: 16px;
-            text-align: center;
+            display: grid;
+            grid-template-columns: minmax(95px, 1fr) auto minmax(95px, 1fr);
+            align-items: center;
+            gap: 18px;
             font-size: 1.8rem;
             font-weight: 950;
             letter-spacing: 1px;
             box-shadow: 0 10px 26px rgba(0, 59, 112, 0.18);
+            overflow: hidden;
+        }}
+
+        .tv-dashboard-title {{
+            text-align: center;
+            white-space: nowrap;
+        }}
+
+        .tv-forklift-wrap {{
+            display: flex;
+            align-items: center;
+        }}
+
+        .tv-forklift-wrap-left {{
+            justify-content: flex-start;
+        }}
+
+        .tv-forklift-wrap-right {{
+            justify-content: flex-end;
+        }}
+
+        .tv-forklift-silhouette {{
+            width: 116px;
+            height: 68px;
+            flex: 0 0 auto;
+            filter: drop-shadow(0 4px 5px rgba(0, 0, 0, 0.22));
+            transform-origin: center;
+        }}
+
+        .tv-forklift-left {{
+            animation: forklift-left-move 2.5s ease-in-out infinite;
+        }}
+
+        .tv-forklift-right {{
+            transform: scaleX(-1);
+            animation: forklift-right-move 2.5s ease-in-out infinite;
+        }}
+
+        @keyframes forklift-left-move {{
+            0%, 100% {{ transform: translateX(0); }}
+            50% {{ transform: translateX(7px); }}
+        }}
+
+        @keyframes forklift-right-move {{
+            0%, 100% {{ transform: scaleX(-1) translateX(0); }}
+            50% {{ transform: scaleX(-1) translateX(7px); }}
+        }}
+
+        @media (max-width: 800px) {{
+            .tv-dashboard-header {{
+                grid-template-columns: 72px 1fr 72px;
+                gap: 8px;
+                padding: 10px 10px;
+                font-size: 1.2rem;
+            }}
+
+            .tv-forklift-silhouette {{
+                width: 72px;
+                height: 48px;
+            }}
         }}
 
         .machine-panel {{
@@ -1361,7 +1424,31 @@ if st.session_state.page in ["dashboard", "tv"]:
         render_html(
             f"""
             <div class="tv-dashboard-header">
-                🚜 UWH LIVE DASHBOARD
+                <div class="tv-forklift-wrap tv-forklift-wrap-left">
+                    <svg class="tv-forklift-silhouette tv-forklift-left" viewBox="0 0 220 130" role="img" aria-label="Vysokozdvižný vozík">
+<g fill="#FFFFFF">
+<path d="M20 81h29l7-43c2-13 12-22 25-22h57c13 0 24 8 28 20l17 52h12v20h-18a24 24 0 0 1-47 0H78a25 25 0 0 1-49 0H20V81zm49-4h64l-14-43H83c-7 0-12 4-13 11l-6 36 5-4z"/>
+<path d="M151 15h10v75h-10zM165 15h9v75h-9zM172 67h41v7h-41zM172 79h48v7h-48z"/>
+<path d="M43 73h28v-22c0-7 6-13 13-13h12c7 0 13 6 13 13v22h28v15H43z"/>
+<circle cx="53" cy="105" r="19"/><circle cx="153" cy="105" r="18"/>
+</g>
+<g fill="#17324D"><circle cx="53" cy="105" r="7"/><circle cx="153" cy="105" r="7"/></g>
+<path d="M101 64l17-17 8 8-17 17zM112 66l23 25-8 7-23-25z" fill="#FFFFFF"/>
+</svg>
+                </div>
+                <div class="tv-dashboard-title">UWH LIVE DASHBOARD</div>
+                <div class="tv-forklift-wrap tv-forklift-wrap-right">
+                    <svg class="tv-forklift-silhouette tv-forklift-right" viewBox="0 0 220 130" role="img" aria-label="Vysokozdvižný vozík">
+<g fill="#FFFFFF">
+<path d="M20 81h29l7-43c2-13 12-22 25-22h57c13 0 24 8 28 20l17 52h12v20h-18a24 24 0 0 1-47 0H78a25 25 0 0 1-49 0H20V81zm49-4h64l-14-43H83c-7 0-12 4-13 11l-6 36 5-4z"/>
+<path d="M151 15h10v75h-10zM165 15h9v75h-9zM172 67h41v7h-41zM172 79h48v7h-48z"/>
+<path d="M43 73h28v-22c0-7 6-13 13-13h12c7 0 13 6 13 13v22h28v15H43z"/>
+<circle cx="53" cy="105" r="19"/><circle cx="153" cy="105" r="18"/>
+</g>
+<g fill="#17324D"><circle cx="53" cy="105" r="7"/><circle cx="153" cy="105" r="7"/></g>
+<path d="M101 64l17-17 8 8-17 17zM112 66l23 25-8 7-23-25z" fill="#FFFFFF"/>
+</svg>
+                </div>
             </div>
             """
         )
