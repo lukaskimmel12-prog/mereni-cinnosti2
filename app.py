@@ -57,9 +57,6 @@ PRACOVNICI = {
     "10203": "Vitásek Jan",
     "11182": "Kellner Karel",
     "11483": "Kvasnička Tomáš",
-    "1617": "Chárová Zdena",
-    "1758": "Lechmanová Kateřina",
-    "11196": "Štefková Klára",
     "11485": "Žemlová Veronika",
     "11486": "Liehmová Hana",
 }
@@ -81,10 +78,11 @@ STROJE = [
     "F88",
     "F117",
     "F140",
+    "F205",
+    "F206",
     "FS04",
     "FS07 Lion",
-    "Jung1",
-    "Jung2",
+    "FP88-LION",
 ]
 
 
@@ -700,6 +698,19 @@ render_html(
         div[data-testid="stAlert"] p,
         div[data-testid="stAlert"] strong {{
             color: {DARK_TEXT} !important;
+        }}
+
+        /* Přihlašovací tlačítka: vyšší a lépe ovladatelná na Zebra skeneru */
+        .st-key-login_grid div.stButton > button {{
+            min-height: 82px !important;
+            padding: 10px 8px !important;
+            line-height: 1.2 !important;
+            white-space: normal !important;
+        }}
+
+        .st-key-login_grid div.stButton > button p {{
+            font-size: 0.95rem !important;
+            line-height: 1.25 !important;
         }}
 
         @media (max-width: 800px) {{
@@ -1537,40 +1548,35 @@ if not st.session_state.logged_employee_id:
         """
     )
 
-    excluded_employee_ids = {
-        "1617",   # Chárová Zdena
-        "1758",   # Lechmanová Kateřina
-        "11196",  # Štefková Klára
-    }
-
+    # Jména jsou ve formátu „Příjmení Jméno“, proto toto řazení
+    # odpovídá abecednímu pořadí podle příjmení.
     login_employees = sorted(
-        [
-            (employee_id, name)
-            for employee_id, name in PRACOVNICI.items()
-            if employee_id not in excluded_employee_ids
-        ],
+        PRACOVNICI.items(),
         key=lambda item: item[1].casefold(),
     )
 
-    for row_start in range(0, len(login_employees), 2):
-        employee_columns = st.columns(2)
-        row_employees = login_employees[row_start:row_start + 2]
+    # Vlastní kontejner umožní zvětšit jen přihlašovací tlačítka.
+    with st.container(key="login_grid"):
+        for row_start in range(0, len(login_employees), 2):
+            employee_columns = st.columns(2)
+            row_employees = login_employees[row_start:row_start + 2]
 
-        for column_index, (employee_id_option, employee_name_option) in enumerate(
-            row_employees
-        ):
-            with employee_columns[column_index]:
-                if st.button(
-                    f"{employee_name_option}\n\nID {employee_id_option}",
-                    key=f"login_employee_{employee_id_option}",
-                    type="secondary",
-                    use_container_width=True,
-                ):
-                    st.session_state.logged_employee_id = employee_id_option
-                    st.session_state.selected_machine = None
-                    st.session_state.selected_activity = None
-                    st.query_params["employee"] = employee_id_option
-                    st.rerun()
+            for column_index, (
+                employee_id_option,
+                employee_name_option,
+            ) in enumerate(row_employees):
+                with employee_columns[column_index]:
+                    if st.button(
+                        f"{employee_name_option}\n\nID {employee_id_option}",
+                        key=f"login_employee_{employee_id_option}",
+                        type="secondary",
+                        use_container_width=True,
+                    ):
+                        st.session_state.logged_employee_id = employee_id_option
+                        st.session_state.selected_machine = None
+                        st.session_state.selected_activity = None
+                        st.query_params["employee"] = employee_id_option
+                        st.rerun()
 
     st.stop()
 
