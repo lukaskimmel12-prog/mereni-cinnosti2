@@ -1717,35 +1717,38 @@ else:
         """
     )
 
-    machine_columns = st.columns(2)
+    # Stroje vykreslujeme po dvojicích v jednotlivých řádcích.
+    # Na úzkém displeji skeneru tak zůstane zachované přesné pořadí
+    # F33, F36, F45, F86... místo seskupení celého levého sloupce.
+    for row_start in range(0, len(STROJE), 2):
+        row_columns = st.columns(2)
+        row_machines = STROJE[row_start:row_start + 2]
 
-    for index, machine in enumerate(STROJE):
-        target_column = machine_columns[index % 2]
+        for column, machine in zip(row_columns, row_machines):
+            with column:
+                selected = (
+                    st.session_state.selected_machine
+                    == machine
+                )
 
-        with target_column:
-            selected = (
-                st.session_state.selected_machine
-                == machine
-            )
-
-            button_label = (
-                f"✓ {machine.upper()}"
-                if selected
-                else machine.upper()
-            )
-
-            if st.button(
-                button_label,
-                key=f"machine_{machine}",
-                type=(
-                    "primary"
+                button_label = (
+                    f"✓ {machine.upper()}"
                     if selected
-                    else "secondary"
-                ),
-                use_container_width=True,
-            ):
-                st.session_state.selected_machine = machine
-                st.rerun()
+                    else machine.upper()
+                )
+
+                if st.button(
+                    button_label,
+                    key=f"machine_{machine}",
+                    type=(
+                        "primary"
+                        if selected
+                        else "secondary"
+                    ),
+                    use_container_width=True,
+                ):
+                    st.session_state.selected_machine = machine
+                    st.rerun()
 
     render_html(
         """
