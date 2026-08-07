@@ -91,6 +91,24 @@ REPORT_RECIPIENT = get_required_secret(
     "REPORT_RECIPIENT"
 )
 
+ADDITIONAL_REPORT_RECIPIENTS = [
+    "josef.baranaj@cz.yusen-logistics.com",
+]
+
+
+def get_report_recipients() -> list[str]:
+    recipients = [
+        address.strip()
+        for address in REPORT_RECIPIENT.replace(";", ",").split(",")
+        if address.strip()
+    ]
+
+    for address in ADDITIONAL_REPORT_RECIPIENTS:
+        if address not in recipients:
+            recipients.append(address)
+
+    return recipients
+
 
 # ============================================================
 # DATUM A ČAS
@@ -1310,21 +1328,16 @@ def send_email(
         )
     )
 
-    summary_text = (
-        create_email_summary(
-            records,
-            period_end_utc,
-        )
-    )
-
     message = EmailMessage()
 
     message["From"] = (
         GMAIL_ADDRESS
     )
 
-    message["To"] = (
-        REPORT_RECIPIENT
+    report_recipients = get_report_recipients()
+
+    message["To"] = ", ".join(
+        report_recipients
     )
 
     message["Subject"] = (
@@ -1335,25 +1348,9 @@ def send_email(
     )
 
     message.set_content(
-        f"""Dobrý den,
+        """Ahoj,
 
-v příloze zasílám automatický přehled činností za posledních 24 hodin.
-
-Období:
-{period_start_local.strftime("%d.%m.%Y %H:%M")}
-až
-{period_end_local.strftime("%d.%m.%Y %H:%M")}
-
-Počet záznamů: {len(records)}
-
-{summary_text}
-
-Excel obsahuje:
-- Detail – všechny jednotlivé záznamy,
-- Souhrn – procenta, grafy, nejdelší záznam a přehled Stroj → Činnost → Čas,
-- Pracovníci – součet času podle pracovníků.
-
-Tento e-mail byl vytvořen automaticky.
+v příloze zasílám přehled činností za posledních 24 hodin.
 """
     )
 
@@ -1416,7 +1413,7 @@ def main() -> None:
 
     print(
         f"Report byl odeslán na "
-        f"{REPORT_RECIPIENT}."
+        f"{', '.join(get_report_recipients())}."
     )
 
     print(
